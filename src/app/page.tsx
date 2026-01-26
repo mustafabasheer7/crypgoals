@@ -122,57 +122,63 @@ export default function HomePage() {
   const getVerdictStyle = (verdict: Verdict) => {
     switch (verdict) {
       case "Buy":
-        return "text-emerald-400"
+        return { text: "text-emerald-400", border: "border-emerald-500/40", accent: "from-emerald-500 to-teal-500" }
       case "Wait":
-        return "text-amber-400"
+        return { text: "text-amber-400", border: "border-amber-500/40", accent: "from-amber-500 to-orange-500" }
       case "Avoid":
-        return "text-red-400"
+        return { text: "text-rose-400", border: "border-rose-500/40", accent: "from-rose-500 to-pink-500" }
     }
   }
 
   const getRiskStyle = (level: RiskLevel | Confidence) => {
-    if (level === "Low" || level === "High") return "text-emerald-400 bg-emerald-400/10 border-emerald-400/20"
-    if (level === "Medium") return "text-amber-400 bg-amber-400/10 border-amber-400/20"
-    return "text-red-400 bg-red-400/10 border-red-400/20"
+    if (level === "Low" || level === "High") return "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+    if (level === "Medium") return "text-amber-400 bg-amber-500/10 border-amber-500/30"
+    return "text-rose-400 bg-rose-500/10 border-rose-500/30"
   }
 
   const getConfidenceStyle = (confidence: Confidence) => {
-    if (confidence === "High") return "text-emerald-400 bg-emerald-400/10 border-emerald-400/20"
-    if (confidence === "Medium") return "text-amber-400 bg-amber-400/10 border-amber-400/20"
-    return "text-red-400 bg-red-400/10 border-red-400/20"
+    if (confidence === "High") return "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+    if (confidence === "Medium") return "text-amber-400 bg-amber-500/10 border-amber-500/30"
+    return "text-rose-400 bg-rose-500/10 border-rose-500/30"
   }
 
+  const verdictStyle = result ? getVerdictStyle(result.verdict) : null
+
   return (
-    <div className="min-h-screen bg-slate-900">
-      <div className="container mx-auto px-4 py-12 sm:py-16 max-w-5xl">
+    <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-slate-950 to-zinc-950 relative">
+      {/* Subtle background texture */}
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.03),transparent_50%)] pointer-events-none"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(14,165,233,0.02),transparent_50%)] pointer-events-none"></div>
+      
+      <div className="container mx-auto px-4 py-16 sm:py-20 max-w-5xl relative z-10">
         {/* Header */}
-        <header className="text-center mb-12 sm:mb-16">
-          <h1 className="text-4xl sm:text-5xl font-light tracking-tight text-white mb-4">
+        <header className="mb-16 text-center">
+          <h1 className="text-5xl sm:text-6xl font-semibold tracking-tight text-white mb-4">
             Crypto Verdict
           </h1>
-          <p className="text-slate-400 text-base sm:text-lg font-light max-w-2xl mx-auto">
+          <p className="text-zinc-400 text-lg font-normal max-w-2xl mx-auto leading-relaxed">
             Paste a coin link to generate a trade plan with entry, stop loss, targets, and verdict.
           </p>
         </header>
 
         {/* Main Card */}
-        <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-white text-xl font-normal">Analysis Request</CardTitle>
-            <CardDescription className="text-slate-400 text-sm font-light mt-1">
+        <Card className="bg-zinc-900/50 border-zinc-800/50 backdrop-blur-sm rounded-xl shadow-xl">
+          <CardHeader className="pb-5">
+            <CardTitle className="text-white text-xl font-semibold">Analysis Request</CardTitle>
+            <CardDescription className="text-zinc-400 text-sm font-normal mt-1.5">
               Enter a coin page URL from CoinGecko or CoinMarketCap
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-5">
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <label
                   htmlFor="coin-url"
-                  className="text-sm font-normal text-slate-300 block"
+                  className="text-sm font-medium text-zinc-300 block"
                 >
                   Coin URL
                 </label>
-                <div className="flex gap-2">
+                <div className="flex gap-3">
                   <Input
                     id="coin-url"
                     type="url"
@@ -180,7 +186,7 @@ export default function HomePage() {
                     value={url}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
-                    className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-cyan-500/20 h-11"
+                    className="bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-indigo-500/20 h-11"
                     disabled={isLoading}
                   />
                   {url && (
@@ -189,7 +195,7 @@ export default function HomePage() {
                       variant="ghost"
                       size="sm"
                       onClick={handleClear}
-                      className="text-slate-400 hover:text-white hover:bg-slate-700/50 h-11 px-4"
+                      className="text-zinc-400 hover:text-white hover:bg-zinc-800/50 h-11 px-4"
                       disabled={isLoading}
                     >
                       Clear
@@ -197,7 +203,7 @@ export default function HomePage() {
                   )}
                 </div>
                 {!isValidUrl && url.trim() && (
-                  <p className="text-sm text-red-400 mt-1 font-light">
+                  <p className="text-sm text-rose-400 mt-1.5 font-normal">
                     Please enter a valid URL starting with http:// or https://
                   </p>
                 )}
@@ -205,7 +211,7 @@ export default function HomePage() {
               <Button
                 type="submit"
                 disabled={!canSubmit || isLoading}
-                className="w-full bg-cyan-500 hover:bg-cyan-600 text-white h-11 font-normal disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-11 font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {isLoading ? (
                   <span className="flex items-center gap-2">
@@ -241,16 +247,17 @@ export default function HomePage() {
 
         {/* Results Section */}
         {result && (
-          <div className="mt-12 space-y-6 animate-in fade-in duration-500">
+          <div className="mt-16 space-y-6">
             <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-3">
               {/* Verdict Card */}
-              <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-white text-lg font-normal">Verdict</CardTitle>
+              <Card className={`bg-zinc-900/50 border ${verdictStyle?.border} backdrop-blur-sm rounded-xl shadow-xl overflow-hidden`}>
+                <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${verdictStyle?.accent}`}></div>
+                <CardHeader className="pb-4 pt-6">
+                  <CardTitle className="text-white text-xs font-semibold uppercase tracking-wide">Verdict</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-center py-8">
-                    <span className={`text-4xl font-light tracking-wide ${getVerdictStyle(result.verdict)}`}>
+                    <span className={`text-4xl font-bold tracking-tight ${verdictStyle?.text}`}>
                       {result.verdict}
                     </span>
                   </div>
@@ -258,45 +265,35 @@ export default function HomePage() {
               </Card>
 
               {/* Trade Plan Card */}
-              <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm sm:col-span-2">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-white text-lg font-normal">Trade Plan</CardTitle>
+              <Card className="bg-zinc-900/50 border-zinc-800/50 backdrop-blur-sm sm:col-span-2 rounded-xl shadow-xl">
+                <CardHeader className="pb-4 border-b border-zinc-800/50">
+                  <CardTitle className="text-white text-xs font-semibold uppercase tracking-wide">Trade Plan</CardTitle>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-6">
                   <div className="space-y-5">
                     <div>
-                      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-light">Entry Zone</p>
-                      <p className="text-lg font-light text-white">
+                      <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">Entry Zone</p>
+                      <p className="text-xl font-semibold text-white">
                         {result.tradePlan.entryZone}
                       </p>
                     </div>
-                    <Separator className="bg-slate-700/50" />
+                    <Separator className="bg-zinc-800/50" />
                     <div>
-                      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-light">Stop Loss</p>
-                      <p className="text-lg font-light text-red-400">
+                      <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">Stop Loss</p>
+                      <p className="text-xl font-semibold text-rose-400">
                         {result.tradePlan.stopLoss}
                       </p>
                     </div>
-                    <Separator className="bg-slate-700/50" />
-                    <div className="grid grid-cols-3 gap-6">
-                      <div>
-                        <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-light">Target 1</p>
-                        <p className="text-lg font-light text-emerald-400">
-                          {result.tradePlan.target1}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-light">Target 2</p>
-                        <p className="text-lg font-light text-emerald-400">
-                          {result.tradePlan.target2}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-light">Target 3</p>
-                        <p className="text-lg font-light text-emerald-400">
-                          {result.tradePlan.target3}
-                        </p>
-                      </div>
+                    <Separator className="bg-zinc-800/50" />
+                    <div className="grid grid-cols-3 gap-5">
+                      {[result.tradePlan.target1, result.tradePlan.target2, result.tradePlan.target3].map((target, idx) => (
+                        <div key={idx}>
+                          <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">Target {idx + 1}</p>
+                          <p className="text-xl font-semibold text-emerald-400">
+                            {target}
+                          </p>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </CardContent>
@@ -304,43 +301,43 @@ export default function HomePage() {
             </div>
 
             {/* Risk Summary Card */}
-            <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
-              <CardHeader className="pb-3">
-                <CardTitle className="text-white text-lg font-normal">Risk Summary</CardTitle>
+            <Card className="bg-zinc-900/50 border-zinc-800/50 backdrop-blur-sm rounded-xl shadow-xl">
+              <CardHeader className="pb-4 border-b border-zinc-800/50">
+                <CardTitle className="text-white text-xs font-semibold uppercase tracking-wide">Risk Summary</CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                 <div className="space-y-6">
-                  <div className="flex flex-wrap gap-4">
+                  <div className="flex flex-wrap gap-6">
                     <div>
-                      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-light">Risk Level</p>
+                      <p className="text-xs text-zinc-500 mb-2.5 uppercase tracking-wider font-medium">Risk Level</p>
                       <Badge
                         variant="outline"
-                        className={`${getRiskStyle(result.riskSummary.riskLevel)} border font-light text-xs px-3 py-1`}
+                        className={`${getRiskStyle(result.riskSummary.riskLevel)} border font-medium text-xs px-3 py-1.5`}
                       >
                         {result.riskSummary.riskLevel}
                       </Badge>
                     </div>
                     <div>
-                      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-light">Confidence</p>
+                      <p className="text-xs text-zinc-500 mb-2.5 uppercase tracking-wider font-medium">Confidence</p>
                       <Badge
                         variant="outline"
-                        className={`${getConfidenceStyle(result.riskSummary.confidence)} border font-light text-xs px-3 py-1`}
+                        className={`${getConfidenceStyle(result.riskSummary.confidence)} border font-medium text-xs px-3 py-1.5`}
                       >
                         {result.riskSummary.confidence}
                       </Badge>
                     </div>
                   </div>
-                  <Separator className="bg-slate-700/50" />
+                  <Separator className="bg-zinc-800/50" />
                   <div>
-                    <p className="text-xs text-slate-500 mb-3 uppercase tracking-wider font-light">Key Reasons</p>
+                    <p className="text-xs text-zinc-500 mb-4 uppercase tracking-wider font-medium">Key Reasons</p>
                     <ul className="space-y-3">
                       {result.riskSummary.reasons.map((reason, index) => (
                         <li
                           key={index}
-                          className="text-slate-300 flex items-start gap-3 text-sm leading-relaxed font-light"
+                          className="text-zinc-300 flex items-start gap-3 text-sm leading-relaxed"
                         >
-                          <span className="text-cyan-400 mt-1.5">•</span>
-                          <span>{reason}</span>
+                          <span className="text-indigo-400 mt-1 font-semibold">•</span>
+                          <span className="font-normal">{reason}</span>
                         </li>
                       ))}
                     </ul>
@@ -351,7 +348,7 @@ export default function HomePage() {
 
             {/* Disclaimer */}
             <div className="text-center pt-4">
-              <p className="text-xs text-slate-500 font-light">
+              <p className="text-xs text-zinc-500 font-normal">
                 Educational only. Not financial advice. Prices can be wrong. You are responsible for your decisions.
               </p>
             </div>
