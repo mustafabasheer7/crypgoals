@@ -119,49 +119,56 @@ export default function HomePage() {
 
   const canSubmit = url.trim() !== "" && isValidUrl
 
+  const getVerdictStyle = (verdict: Verdict) => {
+    switch (verdict) {
+      case "Buy":
+        return "text-emerald-400"
+      case "Wait":
+        return "text-amber-400"
+      case "Avoid":
+        return "text-red-400"
+    }
+  }
+
+  const getRiskStyle = (level: RiskLevel | Confidence) => {
+    if (level === "Low" || level === "High") return "text-emerald-400 bg-emerald-400/10 border-emerald-400/20"
+    if (level === "Medium") return "text-amber-400 bg-amber-400/10 border-amber-400/20"
+    return "text-red-400 bg-red-400/10 border-red-400/20"
+  }
+
+  const getConfidenceStyle = (confidence: Confidence) => {
+    if (confidence === "High") return "text-emerald-400 bg-emerald-400/10 border-emerald-400/20"
+    if (confidence === "Medium") return "text-amber-400 bg-amber-400/10 border-amber-400/20"
+    return "text-red-400 bg-red-400/10 border-red-400/20"
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      <div className="container mx-auto px-4 py-8 sm:py-12 max-w-4xl">
+    <div className="min-h-screen bg-slate-900">
+      <div className="container mx-auto px-4 py-12 sm:py-16 max-w-5xl">
         {/* Header */}
-        <header className="text-center mb-8 sm:mb-12">
-          <div className="flex items-center justify-center gap-2 mb-3">
-            <svg
-              className="w-8 h-8 text-purple-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-              />
-            </svg>
-            <h1 className="text-4xl sm:text-5xl font-bold text-white">
-              Crypto Verdict
-            </h1>
-          </div>
-          <p className="text-slate-300 text-base sm:text-lg">
-            Paste a coin link to generate a trade plan (entry, stop, targets,
-            verdict).
+        <header className="text-center mb-12 sm:mb-16">
+          <h1 className="text-4xl sm:text-5xl font-light tracking-tight text-white mb-4">
+            Crypto Verdict
+          </h1>
+          <p className="text-slate-400 text-base sm:text-lg font-light max-w-2xl mx-auto">
+            Paste a coin link to generate a trade plan with entry, stop loss, targets, and verdict.
           </p>
         </header>
 
         {/* Main Card */}
-        <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-          <CardHeader>
-            <CardTitle className="text-white">Coin Analysis</CardTitle>
-            <CardDescription className="text-slate-400">
+        <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
+          <CardHeader className="pb-4">
+            <CardTitle className="text-white text-xl font-normal">Analysis Request</CardTitle>
+            <CardDescription className="text-slate-400 text-sm font-light mt-1">
               Enter a coin page URL from CoinGecko or CoinMarketCap
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2">
                 <label
                   htmlFor="coin-url"
-                  className="text-sm font-medium text-slate-300"
+                  className="text-sm font-normal text-slate-300 block"
                 >
                   Coin URL
                 </label>
@@ -169,11 +176,11 @@ export default function HomePage() {
                   <Input
                     id="coin-url"
                     type="url"
-                    placeholder="https://www.coingecko.com/en/coins/bitcoin or https://coinmarketcap.com/currencies/bitcoin/"
+                    placeholder="https://www.coingecko.com/en/coins/bitcoin"
                     value={url}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
-                    className="bg-slate-900/50 border-slate-600 text-white placeholder:text-slate-500 focus:border-purple-500"
+                    className="bg-slate-900/50 border-slate-700 text-white placeholder:text-slate-500 focus:border-cyan-500 focus:ring-cyan-500/20 h-11"
                     disabled={isLoading}
                   />
                   {url && (
@@ -182,7 +189,7 @@ export default function HomePage() {
                       variant="ghost"
                       size="sm"
                       onClick={handleClear}
-                      className="text-slate-400 hover:text-white"
+                      className="text-slate-400 hover:text-white hover:bg-slate-700/50 h-11 px-4"
                       disabled={isLoading}
                     >
                       Clear
@@ -190,18 +197,15 @@ export default function HomePage() {
                   )}
                 </div>
                 {!isValidUrl && url.trim() && (
-                  <p className="text-sm text-red-400">
+                  <p className="text-sm text-red-400 mt-1 font-light">
                     Please enter a valid URL starting with http:// or https://
                   </p>
                 )}
-                <p className="text-xs text-slate-500">
-                  Press Enter to submit, or click the button below
-                </p>
               </div>
               <Button
                 type="submit"
                 disabled={!canSubmit || isLoading}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full bg-cyan-500 hover:bg-cyan-600 text-white h-11 font-normal disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {isLoading ? (
                   <span className="flex items-center gap-2">
@@ -225,10 +229,10 @@ export default function HomePage() {
                         d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                       ></path>
                     </svg>
-                    Generating plan...
+                    Analyzing...
                   </span>
                 ) : (
-                  "Generate plan"
+                  "Generate Plan"
                 )}
               </Button>
             </form>
@@ -237,68 +241,59 @@ export default function HomePage() {
 
         {/* Results Section */}
         {result && (
-          <div className="mt-8 space-y-6">
+          <div className="mt-12 space-y-6 animate-in fade-in duration-500">
             <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-3">
               {/* Verdict Card */}
-              <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-                <CardHeader>
-                  <CardTitle className="text-white text-xl">Verdict</CardTitle>
+              <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-white text-lg font-normal">Verdict</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center justify-center py-4">
-                    <Badge
-                      variant="outline"
-                      className={`text-2xl px-6 py-3 border-2 ${
-                        result.verdict === "Buy"
-                          ? "border-green-500 text-green-400"
-                          : result.verdict === "Wait"
-                          ? "border-yellow-500 text-yellow-400"
-                          : "border-red-500 text-red-400"
-                      }`}
-                    >
+                  <div className="flex items-center justify-center py-8">
+                    <span className={`text-4xl font-light tracking-wide ${getVerdictStyle(result.verdict)}`}>
                       {result.verdict}
-                    </Badge>
+                    </span>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Trade Plan Card */}
-              <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm sm:col-span-2">
-                <CardHeader>
-                  <CardTitle className="text-white text-xl">Trade Plan</CardTitle>
+              <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm sm:col-span-2">
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-white text-lg font-normal">Trade Plan</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-4">
+                  <div className="space-y-5">
                     <div>
-                      <p className="text-sm text-slate-400 mb-1">Entry Zone</p>
-                      <p className="text-lg font-semibold text-white">
+                      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-light">Entry Zone</p>
+                      <p className="text-lg font-light text-white">
                         {result.tradePlan.entryZone}
                       </p>
                     </div>
-                    <Separator className="bg-slate-700" />
+                    <Separator className="bg-slate-700/50" />
                     <div>
-                      <p className="text-sm text-slate-400 mb-1">Stop Loss</p>
-                      <p className="text-lg font-semibold text-red-400">
+                      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-light">Stop Loss</p>
+                      <p className="text-lg font-light text-red-400">
                         {result.tradePlan.stopLoss}
                       </p>
                     </div>
-                    <Separator className="bg-slate-700" />
-                    <div className="grid grid-cols-3 gap-4">
+                    <Separator className="bg-slate-700/50" />
+                    <div className="grid grid-cols-3 gap-6">
                       <div>
-                        <p className="text-sm text-slate-400 mb-1">Target 1</p>
-                        <p className="text-lg font-semibold text-green-400">
+                        <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-light">Target 1</p>
+                        <p className="text-lg font-light text-emerald-400">
                           {result.tradePlan.target1}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-slate-400 mb-1">Target 2</p>
-                        <p className="text-lg font-semibold text-green-400">
+                        <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-light">Target 2</p>
+                        <p className="text-lg font-light text-emerald-400">
                           {result.tradePlan.target2}
                         </p>
                       </div>
                       <div>
-                        <p className="text-sm text-slate-400 mb-1">Target 3</p>
-                        <p className="text-lg font-semibold text-green-400">
+                        <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-light">Target 3</p>
+                        <p className="text-lg font-light text-emerald-400">
                           {result.tradePlan.target3}
                         </p>
                       </div>
@@ -309,54 +304,42 @@ export default function HomePage() {
             </div>
 
             {/* Risk Summary Card */}
-            <Card className="bg-slate-800/50 border-slate-700 backdrop-blur-sm">
-              <CardHeader>
-                <CardTitle className="text-white text-xl">Risk Summary</CardTitle>
+            <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur-sm">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-white text-lg font-normal">Risk Summary</CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <div className="flex flex-wrap gap-4">
                     <div>
-                      <p className="text-sm text-slate-400 mb-1">Risk Level</p>
+                      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-light">Risk Level</p>
                       <Badge
                         variant="outline"
-                        className={
-                          result.riskSummary.riskLevel === "Low"
-                            ? "border-green-500 text-green-400"
-                            : result.riskSummary.riskLevel === "Medium"
-                            ? "border-yellow-500 text-yellow-400"
-                            : "border-red-500 text-red-400"
-                        }
+                        className={`${getRiskStyle(result.riskSummary.riskLevel)} border font-light text-xs px-3 py-1`}
                       >
                         {result.riskSummary.riskLevel}
                       </Badge>
                     </div>
                     <div>
-                      <p className="text-sm text-slate-400 mb-1">Confidence</p>
+                      <p className="text-xs text-slate-500 mb-2 uppercase tracking-wider font-light">Confidence</p>
                       <Badge
                         variant="outline"
-                        className={
-                          result.riskSummary.confidence === "High"
-                            ? "border-green-500 text-green-400"
-                            : result.riskSummary.confidence === "Medium"
-                            ? "border-yellow-500 text-yellow-400"
-                            : "border-red-500 text-red-400"
-                        }
+                        className={`${getConfidenceStyle(result.riskSummary.confidence)} border font-light text-xs px-3 py-1`}
                       >
                         {result.riskSummary.confidence}
                       </Badge>
                     </div>
                   </div>
-                  <Separator className="bg-slate-700" />
+                  <Separator className="bg-slate-700/50" />
                   <div>
-                    <p className="text-sm text-slate-400 mb-2">Key Reasons</p>
-                    <ul className="space-y-2">
+                    <p className="text-xs text-slate-500 mb-3 uppercase tracking-wider font-light">Key Reasons</p>
+                    <ul className="space-y-3">
                       {result.riskSummary.reasons.map((reason, index) => (
                         <li
                           key={index}
-                          className="text-slate-300 flex items-start gap-2"
+                          className="text-slate-300 flex items-start gap-3 text-sm leading-relaxed font-light"
                         >
-                          <span className="text-purple-400 mt-1">•</span>
+                          <span className="text-cyan-400 mt-1.5">•</span>
                           <span>{reason}</span>
                         </li>
                       ))}
@@ -367,10 +350,9 @@ export default function HomePage() {
             </Card>
 
             {/* Disclaimer */}
-            <div className="text-center">
-              <p className="text-xs text-slate-500 italic">
-                Educational only. Not financial advice. Prices can be wrong. You
-                are responsible for your decisions.
+            <div className="text-center pt-4">
+              <p className="text-xs text-slate-500 font-light">
+                Educational only. Not financial advice. Prices can be wrong. You are responsible for your decisions.
               </p>
             </div>
           </div>
