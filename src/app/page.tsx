@@ -1,7 +1,13 @@
 "use client"
 
 import { useState, FormEvent } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -85,8 +91,12 @@ export default function HomePage() {
     setResult(null)
 
     try {
-      const data = await fetchAnalysis(pair.trim())
+      const cleanPair = pair.trim().toUpperCase().replace(/-/g, "/")
+      const data = await fetchAnalysis(cleanPair)
       setResult(data)
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Analysis failed"
+      alert(message)
     } finally {
       setIsLoading(false)
     }
@@ -109,16 +119,28 @@ export default function HomePage() {
   const getVerdictStyle = (verdict: Verdict) => {
     switch (verdict) {
       case "Buy":
-        return { text: "text-emerald-400", border: "border-emerald-500/40", accent: "from-emerald-500 to-teal-500" }
+        return {
+          text: "text-emerald-400",
+          border: "border-emerald-500/40",
+          accent: "from-emerald-500 to-teal-500",
+        }
       case "Wait":
-        return { text: "text-amber-400", border: "border-amber-500/40", accent: "from-amber-500 to-orange-500" }
+        return {
+          text: "text-amber-400",
+          border: "border-amber-500/40",
+          accent: "from-amber-500 to-orange-500",
+        }
       case "Avoid":
-        return { text: "text-rose-400", border: "border-rose-500/40", accent: "from-rose-500 to-pink-500" }
+        return {
+          text: "text-rose-400",
+          border: "border-rose-500/40",
+          accent: "from-rose-500 to-pink-500",
+        }
     }
   }
 
-  const getRiskStyle = (level: RiskLevel | Confidence) => {
-    if (level === "Low" || level === "High") return "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+  const getRiskStyle = (level: RiskLevel) => {
+    if (level === "Low") return "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
     if (level === "Medium") return "text-amber-400 bg-amber-500/10 border-amber-500/30"
     return "text-rose-400 bg-rose-500/10 border-rose-500/30"
   }
@@ -136,7 +158,7 @@ export default function HomePage() {
       {/* Subtle background texture */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.03),transparent_50%)] pointer-events-none"></div>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(14,165,233,0.02),transparent_50%)] pointer-events-none"></div>
-      
+
       <div className="container mx-auto px-4 py-16 sm:py-20 max-w-5xl relative z-10">
         {/* Header */}
         <header className="mb-16 text-center">
@@ -144,14 +166,16 @@ export default function HomePage() {
             Crypto Verdict
           </h1>
           <p className="text-zinc-400 text-lg font-normal max-w-2xl mx-auto leading-relaxed">
-            Paste a coin link to generate a trade plan with entry, stop loss, targets, and verdict.
+            Enter a market pair to generate a trade plan with entry, stop loss, targets, and verdict.
           </p>
         </header>
 
         {/* Main Card */}
         <Card className="bg-zinc-900/50 border-zinc-800/50 backdrop-blur-sm rounded-xl shadow-xl">
           <CardHeader className="pb-5">
-            <CardTitle className="text-white text-xl font-semibold">Analysis Request</CardTitle>
+            <CardTitle className="text-white text-xl font-semibold">
+              Analysis Request
+            </CardTitle>
             <CardDescription className="text-zinc-400 text-sm font-normal mt-1.5">
               Enter a Kraken trading pair like BTC/USD, ETH/USD, SOL/USD
             </CardDescription>
@@ -237,14 +261,22 @@ export default function HomePage() {
           <div className="mt-16 space-y-6">
             <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-3">
               {/* Verdict Card */}
-              <Card className={`bg-zinc-900/50 border ${verdictStyle?.border} backdrop-blur-sm rounded-xl shadow-xl overflow-hidden`}>
-                <div className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${verdictStyle?.accent}`}></div>
+              <Card
+                className={`bg-zinc-900/50 border ${verdictStyle?.border} backdrop-blur-sm rounded-xl shadow-xl overflow-hidden`}
+              >
+                <div
+                  className={`absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r ${verdictStyle?.accent}`}
+                ></div>
                 <CardHeader className="pb-4 pt-6">
-                  <CardTitle className="text-white text-xs font-semibold uppercase tracking-wide">Verdict</CardTitle>
+                  <CardTitle className="text-white text-xs font-semibold uppercase tracking-wide">
+                    Verdict
+                  </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-center justify-center py-8">
-                    <span className={`text-4xl font-bold tracking-tight ${verdictStyle?.text}`}>
+                    <span
+                      className={`text-4xl font-bold tracking-tight ${verdictStyle?.text}`}
+                    >
                       {result.verdict}
                     </span>
                   </div>
@@ -254,28 +286,40 @@ export default function HomePage() {
               {/* Trade Plan Card */}
               <Card className="bg-zinc-900/50 border-zinc-800/50 backdrop-blur-sm sm:col-span-2 rounded-xl shadow-xl">
                 <CardHeader className="pb-4 border-b border-zinc-800/50">
-                  <CardTitle className="text-white text-xs font-semibold uppercase tracking-wide">Trade Plan</CardTitle>
+                  <CardTitle className="text-white text-xs font-semibold uppercase tracking-wide">
+                    Trade Plan
+                  </CardTitle>
                 </CardHeader>
                 <CardContent className="pt-6">
                   <div className="space-y-5">
                     <div>
-                      <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">Entry Zone</p>
+                      <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">
+                        Entry Zone
+                      </p>
                       <p className="text-xl font-semibold text-white">
                         {result.tradePlan.entryZone}
                       </p>
                     </div>
                     <Separator className="bg-zinc-800/50" />
                     <div>
-                      <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">Stop Loss</p>
+                      <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">
+                        Stop Loss
+                      </p>
                       <p className="text-xl font-semibold text-rose-400">
                         {result.tradePlan.stopLoss}
                       </p>
                     </div>
                     <Separator className="bg-zinc-800/50" />
                     <div className="grid grid-cols-3 gap-5">
-                      {[result.tradePlan.target1, result.tradePlan.target2, result.tradePlan.target3].map((target, idx) => (
+                      {[
+                        result.tradePlan.target1,
+                        result.tradePlan.target2,
+                        result.tradePlan.target3,
+                      ].map((target, idx) => (
                         <div key={idx}>
-                          <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">Target {idx + 1}</p>
+                          <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">
+                            Target {idx + 1}
+                          </p>
                           <p className="text-xl font-semibold text-emerald-400">
                             {target}
                           </p>
@@ -290,13 +334,17 @@ export default function HomePage() {
             {/* Risk Summary Card */}
             <Card className="bg-zinc-900/50 border-zinc-800/50 backdrop-blur-sm rounded-xl shadow-xl">
               <CardHeader className="pb-4 border-b border-zinc-800/50">
-                <CardTitle className="text-white text-xs font-semibold uppercase tracking-wide">Risk Summary</CardTitle>
+                <CardTitle className="text-white text-xs font-semibold uppercase tracking-wide">
+                  Risk Summary
+                </CardTitle>
               </CardHeader>
               <CardContent className="pt-6">
                 <div className="space-y-6">
                   <div className="flex flex-wrap gap-6">
                     <div>
-                      <p className="text-xs text-zinc-500 mb-2.5 uppercase tracking-wider font-medium">Risk Level</p>
+                      <p className="text-xs text-zinc-500 mb-2.5 uppercase tracking-wider font-medium">
+                        Risk Level
+                      </p>
                       <Badge
                         variant="outline"
                         className={`${getRiskStyle(result.riskSummary.riskLevel)} border font-medium text-xs px-3 py-1.5`}
@@ -305,7 +353,9 @@ export default function HomePage() {
                       </Badge>
                     </div>
                     <div>
-                      <p className="text-xs text-zinc-500 mb-2.5 uppercase tracking-wider font-medium">Confidence</p>
+                      <p className="text-xs text-zinc-500 mb-2.5 uppercase tracking-wider font-medium">
+                        Confidence
+                      </p>
                       <Badge
                         variant="outline"
                         className={`${getConfidenceStyle(result.riskSummary.confidence)} border font-medium text-xs px-3 py-1.5`}
@@ -316,14 +366,18 @@ export default function HomePage() {
                   </div>
                   <Separator className="bg-zinc-800/50" />
                   <div>
-                    <p className="text-xs text-zinc-500 mb-4 uppercase tracking-wider font-medium">Key Reasons</p>
+                    <p className="text-xs text-zinc-500 mb-4 uppercase tracking-wider font-medium">
+                      Key Reasons
+                    </p>
                     <ul className="space-y-3">
                       {result.riskSummary.reasons.map((reason, index) => (
                         <li
                           key={index}
                           className="text-zinc-300 flex items-start gap-3 text-sm leading-relaxed"
                         >
-                          <span className="text-indigo-400 mt-1 font-semibold">•</span>
+                          <span className="text-indigo-400 mt-1 font-semibold">
+                            •
+                          </span>
                           <span className="font-normal">{reason}</span>
                         </li>
                       ))}
