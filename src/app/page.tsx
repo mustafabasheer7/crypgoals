@@ -31,30 +31,47 @@ interface AnalysisResult {
   riskSummary: RiskSummary
 }
 
+const PAIR_REGEX = /^[A-Z0-9]{2,10}[\/-][A-Z0-9]{2,10}$/i
+
+function validatePair(value: string): boolean {
+  if (!value.trim()) return true
+  return PAIR_REGEX.test(value.trim())
+}
+
+/** Placeholder: replace with real /api/analyse call later */
+async function fetchAnalysis(pair: string): Promise<AnalysisResult> {
+  // TODO: fetch(`/api/analyse?pair=${encodeURIComponent(pair)}`) and return response
+  return {
+    verdict: "Buy",
+    tradePlan: {
+      entryZone: "$42,500 - $43,200",
+      stopLoss: "$41,800",
+      target1: "$44,500",
+      target2: "$45,800",
+      target3: "$47,200",
+    },
+    riskSummary: {
+      riskLevel: "Medium",
+      confidence: "High",
+      reasons: [
+        "Strong support level identified at current price range",
+        "Volume indicators show increasing interest",
+        "Technical pattern suggests potential upward movement",
+      ],
+    },
+  }
+}
+
 export default function HomePage() {
-  const [url, setUrl] = useState("")
-  const [isValidUrl, setIsValidUrl] = useState(true)
+  const [pair, setPair] = useState("")
+  const [isValidPair, setIsValidPair] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<AnalysisResult | null>(null)
 
-  const validateUrl = (value: string): boolean => {
-    if (!value.trim()) {
-      return true // Empty is valid (no error shown)
-    }
-    try {
-      const urlObj = new URL(value)
-      return urlObj.protocol === "http:" || urlObj.protocol === "https:"
-    } catch {
-      // Check if it starts with http:// or https://
-      return value.startsWith("http://") || value.startsWith("https://")
-    }
-  }
-
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
-    setUrl(value)
-    setIsValidUrl(validateUrl(value))
-    // Clear result when input changes
+    setPair(value)
+    setIsValidPair(validatePair(value))
     if (result) {
       setResult(null)
     }
@@ -62,62 +79,32 @@ export default function HomePage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    
-    if (!url.trim() || !isValidUrl) {
-      return
-    }
+    if (!pair.trim() || !isValidPair) return
 
     setIsLoading(true)
     setResult(null)
 
-    // Simulate API call with random delay between 800-1200ms
-    const delay = Math.floor(Math.random() * 400) + 800
-    await new Promise((resolve) => setTimeout(resolve, delay))
-
-    // Generate mock result
-    const mockResult: AnalysisResult = {
-      verdict: (["Buy", "Wait", "Avoid"] as Verdict[])[
-        Math.floor(Math.random() * 3)
-      ],
-      tradePlan: {
-        entryZone: "$42,500 - $43,200",
-        stopLoss: "$41,800",
-        target1: "$44,500",
-        target2: "$45,800",
-        target3: "$47,200",
-      },
-      riskSummary: {
-        riskLevel: (["Low", "Medium", "High"] as RiskLevel[])[
-          Math.floor(Math.random() * 3)
-        ],
-        confidence: (["Low", "Medium", "High"] as Confidence[])[
-          Math.floor(Math.random() * 3)
-        ],
-        reasons: [
-          "Strong support level identified at current price range",
-          "Volume indicators show increasing interest",
-          "Technical pattern suggests potential upward movement",
-        ],
-      },
+    try {
+      const data = await fetchAnalysis(pair.trim())
+      setResult(data)
+    } finally {
+      setIsLoading(false)
     }
-
-    setResult(mockResult)
-    setIsLoading(false)
   }
 
   const handleClear = () => {
-    setUrl("")
-    setIsValidUrl(true)
+    setPair("")
+    setIsValidPair(true)
     setResult(null)
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && url.trim() && isValidUrl) {
-      handleSubmit(e as any)
+    if (e.key === "Enter" && pair.trim() && isValidPair) {
+      handleSubmit(e as unknown as FormEvent)
     }
   }
 
-  const canSubmit = url.trim() !== "" && isValidUrl
+  const canSubmit = pair.trim() !== "" && isValidPair
 
   const getVerdictStyle = (verdict: Verdict) => {
     switch (verdict) {
@@ -166,30 +153,30 @@ export default function HomePage() {
           <CardHeader className="pb-5">
             <CardTitle className="text-white text-xl font-semibold">Analysis Request</CardTitle>
             <CardDescription className="text-zinc-400 text-sm font-normal mt-1.5">
-              Enter a coin page URL from CoinGecko or CoinMarketCap
+              Enter a Kraken trading pair like BTC/USD, ETH/USD, SOL/USD
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-5">
               <div className="space-y-2.5">
                 <label
-                  htmlFor="coin-url"
+                  htmlFor="market-pair"
                   className="text-sm font-medium text-zinc-300 block"
                 >
-                  Coin URL
+                  Market Pair
                 </label>
                 <div className="flex gap-3">
                   <Input
-                    id="coin-url"
-                    type="url"
-                    placeholder="https://www.coingecko.com/en/coins/bitcoin"
-                    value={url}
+                    id="market-pair"
+                    type="text"
+                    placeholder="BTC/USD"
+                    value={pair}
                     onChange={handleInputChange}
                     onKeyDown={handleKeyDown}
                     className="bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-indigo-500/20 h-11"
                     disabled={isLoading}
                   />
-                  {url && (
+                  {pair && (
                     <Button
                       type="button"
                       variant="ghost"
@@ -202,9 +189,9 @@ export default function HomePage() {
                     </Button>
                   )}
                 </div>
-                {!isValidUrl && url.trim() && (
+                {!isValidPair && pair.trim() && (
                   <p className="text-sm text-rose-400 mt-1.5 font-normal">
-                    Please enter a valid URL starting with http:// or https://
+                    Enter a valid market pair like BTC/USD
                   </p>
                 )}
               </div>
