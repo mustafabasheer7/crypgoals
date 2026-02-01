@@ -35,7 +35,17 @@ interface AnalysisResult {
   verdict: Verdict
   tradePlan: TradePlan
   riskSummary: RiskSummary
+  levels: {
+    entryLow: number
+    entryHigh: number
+    entryMid: number
+    stop: number
+    t1: number
+    t2: number
+    t3: number
+  }
 }
+
 
 const PAIR_REGEX = /^[A-Z0-9]{2,10}[\/-][A-Z0-9]{2,10}$/i
 
@@ -44,43 +54,92 @@ function validatePair(value: string): boolean {
   return PAIR_REGEX.test(value.trim())
 }
 
-/** Placeholder: replace with real /api/analyse call later */
+function normalisePair(value: string): string {
+  return value.trim().toUpperCase().replace(/-/g, "/")
+}
+
+
+function formatUsd(n: number): string {
+  return n.toLocaleString(undefined, { style: "currency", currency: "USD" })
+}
+
+function formatPct(n: number): string {
+  const sign = n >= 0 ? "+" : ""
+  return `${sign}${n.toFixed(1)}%`
+}
+
 async function fetchAnalysis(pair: string): Promise<AnalysisResult> {
-  // TODO: fetch(`/api/analyse?pair=${encodeURIComponent(pair)}`) and return response
-  return {
-    verdict: "Buy",
-    tradePlan: {
-      entryZone: "$42,500 - $43,200",
-      stopLoss: "$41,800",
-      target1: "$44,500",
-      target2: "$45,800",
-      target3: "$47,200",
-    },
-    riskSummary: {
-      riskLevel: "Medium",
-      confidence: "High",
-      reasons: [
-        "Strong support level identified at current price range",
-        "Volume indicators show increasing interest",
-        "Technical pattern suggests potential upward movement",
-      ],
-    },
+  const res = await fetch(
+    `/api/analyse?pair=${encodeURIComponent(pair)}&interval=240&limit=300`,
+    { method: "GET" }
+  )
+
+  const text = await res.text()
+
+  // Try to parse JSON, but don't crash if body is empty or non-json
+  let data: any = null
+  try {
+    data = text ? JSON.parse(text) : null
+  } catch {
+    data = null
   }
+
+  if (!res.ok) {
+    // Prefer API-provided error, else show raw text (very useful for debugging)
+    const msg = data?.error ?? text ?? `Request failed (${res.status})`
+    throw new Error(msg)
+  }
+
+  if (!data) {
+    throw new Error("Empty response from /api/analyse")
+  }
+
+  return data as AnalysisResult
+}
+
+/**
+ * Current price from your existing Kraken OHLC route.
+ * Uses last candle close.
+ */
+async function fetchCurrentPrice(pair: string): Promise<number> {
+  const res = await fetch(
+    `/api/kraken/ohlc?pair=${encodeURIComponent(pair)}&interval=1&limit=2`,
+    { method: "GET" }
+  )
+  const json = await res.json()
+  if (!res.ok) throw new Error(json?.error ?? "Price fetch failed")
+
+  const candles = json?.candles
+  if (!Array.isArray(candles) || candles.length === 0) {
+    throw new Error("No price data returned")
+  }
+
+  const last = candles[candles.length - 1]
+  const close = Number(last?.close)
+  if (!Number.isFinite(close)) throw new Error("Invalid price data")
+
+  return close
 }
 
 export default function HomePage() {
   const [pair, setPair] = useState("")
   const [isValidPair, setIsValidPair] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
+
   const [result, setResult] = useState<AnalysisResult | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null)
+  const [priceError, setPriceError] = useState<string | null>(null)
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
     setPair(value)
     setIsValidPair(validatePair(value))
-    if (result) {
-      setResult(null)
-    }
+    setError(null)
+    setPriceError(null)
+    setCurrentPrice(null)
+    if (result) setResult(null)
   }
 
   const handleSubmit = async (e: FormEvent) => {
@@ -89,14 +148,32 @@ export default function HomePage() {
 
     setIsLoading(true)
     setResult(null)
+    setError(null)
+    setPriceError(null)
+    setCurrentPrice(null)
 
     try {
-      const cleanPair = pair.trim().toUpperCase().replace(/-/g, "/")
-      const data = await fetchAnalysis(cleanPair)
-      setResult(data)
+      const cleanPair = normalisePair(pair)
+
+      const [analysis, price] = await Promise.allSettled([
+        fetchAnalysis(cleanPair),
+        fetchCurrentPrice(cleanPair),
+      ])
+
+      if (analysis.status === "rejected") {
+        throw analysis.reason
+      }
+      setResult(analysis.value)
+
+      if (price.status === "fulfilled") {
+        setCurrentPrice(price.value)
+      } else {
+        const msg = price.reason instanceof Error ? price.reason.message : "Price fetch failed"
+        setPriceError(msg)
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Analysis failed"
-      alert(message)
+      setError(message)
     } finally {
       setIsLoading(false)
     }
@@ -106,12 +183,9 @@ export default function HomePage() {
     setPair("")
     setIsValidPair(true)
     setResult(null)
-  }
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && pair.trim() && isValidPair) {
-      handleSubmit(e as unknown as FormEvent)
-    }
+    setError(null)
+    setCurrentPrice(null)
+    setPriceError(null)
   }
 
   const canSubmit = pair.trim() !== "" && isValidPair
@@ -153,14 +227,23 @@ export default function HomePage() {
 
   const verdictStyle = result ? getVerdictStyle(result.verdict) : null
 
+  // Profit % uses entry midpoint as baseline
+  const entryMid = result?.levels?.entryMid ?? null
+
+  const profitPctFrom = (target: number): string => {
+    if (entryMid == null || entryMid === 0) return "N/A"
+    const pct = ((target - entryMid) / entryMid) * 100
+    if (!Number.isFinite(pct)) return "N/A"
+    const sign = pct >= 0 ? "+" : ""
+    return `${sign}${pct.toFixed(1)}%`
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-slate-950 to-zinc-950 relative">
-      {/* Subtle background texture */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(99,102,241,0.03),transparent_50%)] pointer-events-none"></div>
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_20%,rgba(14,165,233,0.02),transparent_50%)] pointer-events-none"></div>
 
       <div className="container mx-auto px-4 py-16 sm:py-20 max-w-5xl relative z-10">
-        {/* Header */}
         <header className="mb-16 text-center">
           <h1 className="text-5xl sm:text-6xl font-semibold tracking-tight text-white mb-4">
             Crypto Verdict
@@ -170,7 +253,6 @@ export default function HomePage() {
           </p>
         </header>
 
-        {/* Main Card */}
         <Card className="bg-zinc-900/50 border-zinc-800/50 backdrop-blur-sm rounded-xl shadow-xl">
           <CardHeader className="pb-5">
             <CardTitle className="text-white text-xl font-semibold">
@@ -196,7 +278,6 @@ export default function HomePage() {
                     placeholder="BTC/USD"
                     value={pair}
                     onChange={handleInputChange}
-                    onKeyDown={handleKeyDown}
                     className="bg-zinc-950/80 border-zinc-800 text-white placeholder:text-zinc-600 focus:border-indigo-500/50 focus:ring-indigo-500/20 h-11"
                     disabled={isLoading}
                   />
@@ -218,7 +299,13 @@ export default function HomePage() {
                     Enter a valid market pair like BTC/USD
                   </p>
                 )}
+                {error && (
+                  <p className="text-sm text-rose-400 mt-1.5 font-normal">
+                    {error}
+                  </p>
+                )}
               </div>
+
               <Button
                 type="submit"
                 disabled={!canSubmit || isLoading}
@@ -256,11 +343,9 @@ export default function HomePage() {
           </CardContent>
         </Card>
 
-        {/* Results Section */}
         {result && (
           <div className="mt-16 space-y-6">
             <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-3">
-              {/* Verdict Card */}
               <Card
                 className={`bg-zinc-900/50 border ${verdictStyle?.border} backdrop-blur-sm rounded-xl shadow-xl overflow-hidden`}
               >
@@ -283,7 +368,6 @@ export default function HomePage() {
                 </CardContent>
               </Card>
 
-              {/* Trade Plan Card */}
               <Card className="bg-zinc-900/50 border-zinc-800/50 backdrop-blur-sm sm:col-span-2 rounded-xl shadow-xl">
                 <CardHeader className="pb-4 border-b border-zinc-800/50">
                   <CardTitle className="text-white text-xs font-semibold uppercase tracking-wide">
@@ -292,6 +376,24 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent className="pt-6">
                   <div className="space-y-5">
+                    {/* Current Price */}
+                    <div>
+                      <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">
+                        Current Price
+                      </p>
+                      {currentPrice != null ? (
+                        <p className="text-xl font-semibold text-white">
+                          {formatUsd(currentPrice)}
+                        </p>
+                      ) : priceError ? (
+                        <p className="text-sm text-rose-400">{priceError}</p>
+                      ) : (
+                        <p className="text-sm text-zinc-500">Unavailable</p>
+                      )}
+                    </div>
+
+                    <Separator className="bg-zinc-800/50" />
+
                     <div>
                       <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">
                         Entry Zone
@@ -299,8 +401,15 @@ export default function HomePage() {
                       <p className="text-xl font-semibold text-white">
                         {result.tradePlan.entryZone}
                       </p>
+                      {entryMid != null && (
+                        <p className="text-xs text-zinc-500 mt-1">
+                          Entry midpoint: {formatUsd(entryMid)}
+                        </p>
+                      )}
                     </div>
+
                     <Separator className="bg-zinc-800/50" />
+
                     <div>
                       <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">
                         Stop Loss
@@ -309,19 +418,22 @@ export default function HomePage() {
                         {result.tradePlan.stopLoss}
                       </p>
                     </div>
+
                     <Separator className="bg-zinc-800/50" />
+
                     <div className="grid grid-cols-3 gap-5">
                       {[
-                        result.tradePlan.target1,
-                        result.tradePlan.target2,
-                        result.tradePlan.target3,
-                      ].map((target, idx) => (
-                        <div key={idx}>
+                        { label: "Target 1", price: result.levels.t1, text: result.tradePlan.target1 },
+                        { label: "Target 2", price: result.levels.t2, text: result.tradePlan.target2 },
+                        { label: "Target 3", price: result.levels.t3, text: result.tradePlan.target3 },
+                      ].map((t) => (
+                        <div key={t.label}>
                           <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium">
-                            Target {idx + 1}
+                            {t.label}
                           </p>
-                          <p className="text-xl font-semibold text-emerald-400">
-                            {target}
+                          <p className="text-xl font-semibold text-emerald-400">{t.text}</p>
+                          <p className="text-xs text-zinc-500 mt-1">
+                            Approx profit: {profitPctFrom(t.price)}
                           </p>
                         </div>
                       ))}
@@ -331,7 +443,6 @@ export default function HomePage() {
               </Card>
             </div>
 
-            {/* Risk Summary Card */}
             <Card className="bg-zinc-900/50 border-zinc-800/50 backdrop-blur-sm rounded-xl shadow-xl">
               <CardHeader className="pb-4 border-b border-zinc-800/50">
                 <CardTitle className="text-white text-xs font-semibold uppercase tracking-wide">
@@ -387,7 +498,6 @@ export default function HomePage() {
               </CardContent>
             </Card>
 
-            {/* Disclaimer */}
             <div className="text-center pt-4">
               <p className="text-xs text-zinc-500 font-normal">
                 Educational only. Not financial advice. Prices can be wrong. You are responsible for your decisions.

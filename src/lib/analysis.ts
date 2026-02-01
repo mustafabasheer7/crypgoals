@@ -1,5 +1,3 @@
-// src/lib/analysis.ts
-
 export type Verdict = "Buy" | "Wait" | "Avoid"
 export type RiskLevel = "Low" | "Medium" | "High"
 export type Confidence = "Low" | "Medium" | "High"
@@ -14,6 +12,17 @@ export interface Candle {
   volume: number
   count: number
 }
+
+export interface TradeLevels {
+  entryLow: number
+  entryHigh: number
+  entryMid: number
+  stop: number
+  t1: number
+  t2: number
+  t3: number
+}
+
 
 export interface TradePlan {
   entryZone: string
@@ -33,6 +42,7 @@ export interface AnalysisResult {
   verdict: Verdict
   tradePlan: TradePlan
   riskSummary: RiskSummary
+  levels: TradeLevels
   meta: {
     trend: "Bull" | "Bear" | "Range"
     rsi: number
@@ -178,6 +188,7 @@ export function analyseCandles(
   pair: string,
   candles: Candle[]
 ): AnalysisResult {
+    console.log(pair,"pair");
   const cleanPair = pair.trim().toUpperCase().replace(/-/g, "/")
   const quote = cleanPair.split("/")[1] ?? "USD"
 
@@ -223,13 +234,30 @@ export function analyseCandles(
   const atrPct = atr14 ? (atr14 / lastPrice) * 100 : 0
   const rsiVal = rsi14 ?? 50
 
-  const supportBase = support ?? fib["0.618"]
-  const resistanceBase = resistance ?? swingHigh
+  const fibCandidates = Object.values(fib).sort((a, b) => a - b)
+
+  const supportFallback =
+    [...fibCandidates, swingLow]
+      .filter((x) => x < lastPrice)
+      .pop() ?? swingLow
+
+  const resistanceFallback =
+    [swingHigh, ...fibCandidates.slice().reverse()]
+      .filter((x) => x > lastPrice)[0] ?? swingHigh
+
+  const supportBase = support != null && support < lastPrice ? support : supportFallback
+  const resistanceBase = resistance != null && resistance > lastPrice ? resistance : resistanceFallback
 
   // Entry: small zone above support
-  const entryLow = supportBase * 1.002
-  const entryHigh = supportBase * 1.012
-  const entryMid = (entryLow + entryHigh) / 2
+  let entryLow = supportBase * 1.002
+  let entryHigh = supportBase * 1.012
+  let entryMid = (entryLow + entryHigh) / 2
+
+  if (entryLow >= lastPrice) {
+    entryLow = lastPrice * 0.99
+    entryHigh = lastPrice * 0.995
+    entryMid = (entryLow + entryHigh) / 2
+  }
 
   // Stop: below support by ATR or 0.8%
   const stop = Math.min(
@@ -309,6 +337,7 @@ export function analyseCandles(
 
   return {
     verdict,
+    levels: { entryLow, entryHigh, entryMid, stop, t1, t2, t3 },
     tradePlan,
     riskSummary: { riskLevel, confidence, reasons },
     meta: {
