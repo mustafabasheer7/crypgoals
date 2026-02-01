@@ -23,7 +23,6 @@ export interface TradeLevels {
   t3: number
 }
 
-
 export interface TradePlan {
   entryZone: string
   stopLoss: string
@@ -58,9 +57,7 @@ export interface AnalysisResult {
   }
 }
 
-function clamp(n: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, n))
-}
+/* ---------- helpers ---------- */
 
 function round(n: number, dp: number) {
   const p = 10 ** dp
@@ -84,7 +81,8 @@ export function formatPrice(price: number, quote: string) {
 export function ema(values: number[], period: number) {
   if (values.length < period) return null
   const k = 2 / (period + 1)
-  let prev = values.slice(0, period).reduce((a, b) => a + b, 0) / period
+  let prev =
+    values.slice(0, period).reduce((a, b) => a + b, 0) / period
   for (let i = period; i < values.length; i++) {
     prev = values[i] * k + prev * (1 - k)
   }
@@ -120,20 +118,19 @@ export function rsi(values: number[], period = 14) {
 
 export function atr(candles: Candle[], period = 14) {
   if (candles.length < period + 1) return null
-
   const trs: number[] = []
   for (let i = 1; i < candles.length; i++) {
     const c = candles[i]
     const p = candles[i - 1]
-    const tr = Math.max(
-      c.high - c.low,
-      Math.abs(c.high - p.close),
-      Math.abs(c.low - p.close)
+    trs.push(
+      Math.max(
+        c.high - c.low,
+        Math.abs(c.high - p.close),
+        Math.abs(c.low - p.close)
+      )
     )
-    trs.push(tr)
   }
 
-  if (trs.length < period) return null
   const first = trs.slice(0, period).reduce((a, b) => a + b, 0) / period
   let prev = first
   for (let i = period; i < trs.length; i++) {
@@ -142,24 +139,25 @@ export function atr(candles: Candle[], period = 14) {
   return prev
 }
 
-// Simple clustering: bucket prices by bucketPct of lastPrice
+/* ---------- structure analysis ---------- */
+
 function clusterLevels(levels: number[], lastPrice: number, bucketPct = 0.002) {
   const bucket = lastPrice * bucketPct
   const map = new Map<number, { level: number; count: number }>()
+
   for (const lvl of levels) {
     const key = Math.round(lvl / bucket)
     const item = map.get(key)
     if (!item) map.set(key, { level: lvl, count: 1 })
     else {
-      // update centroid
       item.count += 1
-      item.level = item.level + (lvl - item.level) / item.count
+      item.level += (lvl - item.level) / item.count
     }
   }
+
   return [...map.values()].sort((a, b) => b.count - a.count).map(x => x.level)
 }
 
-// Pivot points: local highs/lows
 function pivots(candles: Candle[], leftRight = 2) {
   const lows: number[] = []
   const highs: number[] = []
@@ -172,7 +170,6 @@ function pivots(candles: Candle[], leftRight = 2) {
     for (let j = 1; j <= leftRight; j++) {
       if (candles[i - j].low <= c.low) isLow = false
       if (candles[i + j].low <= c.low) isLow = false
-
       if (candles[i - j].high >= c.high) isHigh = false
       if (candles[i + j].high >= c.high) isHigh = false
     }
@@ -184,11 +181,9 @@ function pivots(candles: Candle[], leftRight = 2) {
   return { lows, highs }
 }
 
-export function analyseCandles(
-  pair: string,
-  candles: Candle[]
-): AnalysisResult {
-    console.log(pair,"pair");
+/* ---------- MAIN ---------- */
+
+export function analyseCandles(pair: string, candles: Candle[]): AnalysisResult {
   const cleanPair = pair.trim().toUpperCase().replace(/-/g, "/")
   const quote = cleanPair.split("/")[1] ?? "USD"
 
@@ -197,161 +192,95 @@ export function analyseCandles(
 
   const ema50 = ema(closes, 50)
   const ema200 = ema(closes, 200)
-  const rsi14 = rsi(closes, 14)
+  const rsiVal = rsi(closes, 14) ?? 50
   const atr14 = atr(candles, 14)
+  const atrPct = atr14 ? (atr14 / lastPrice) * 100 : 0
 
-  // Trend (simple + robust)
+  /* Trend */
   let trend: "Bull" | "Bear" | "Range" = "Range"
   if (ema50 != null && ema200 != null) {
     if (ema50 > ema200 && lastPrice >= ema50) trend = "Bull"
     else if (ema50 < ema200 && lastPrice <= ema50) trend = "Bear"
-    else trend = "Range"
   }
 
-  // Support / Resistance from pivots, clustered
+  /* Support / Resistance */
   const { lows, highs } = pivots(candles.slice(-300), 2)
-  const lowClusters = clusterLevels(lows, lastPrice, 0.002)
-  const highClusters = clusterLevels(highs, lastPrice, 0.002)
+  const support = clusterLevels(lows, lastPrice)[0] ?? null
+  const resistance = clusterLevels(highs, lastPrice)[0] ?? null
 
-  const support = lowClusters.find(l => l < lastPrice) ?? null
-  const resistance = highClusters.find(l => l > lastPrice) ?? null
+  /* Entry: ALWAYS below current price */
+  const entryLow = lastPrice * 0.97
+  const entryHigh = lastPrice * 0.985
+  const entryMid = (entryLow + entryHigh) / 2
 
-  // Swing range for fib: use last 200 candles high/low
-  const lookback = candles.slice(-200)
-  const swingLow = Math.min(...lookback.map(c => c.low))
-  const swingHigh = Math.max(...lookback.map(c => c.high))
-  const range = swingHigh - swingLow || 1
+  /* Stop */
+  const stop = entryMid - Math.max(atr14 ?? lastPrice * 0.008, entryMid * 0.02)
 
-  const fib = {
-    "0.236": swingHigh - range * 0.236,
-    "0.382": swingHigh - range * 0.382,
-    "0.5": swingHigh - range * 0.5,
-    "0.618": swingHigh - range * 0.618,
-    "0.786": swingHigh - range * 0.786,
-  }
+  /* Risk */
+  const risk = Math.max(entryMid - stop, lastPrice * 0.002)
 
-  // Entry / Stop / Targets (heuristic)
-  const atrPct = atr14 ? (atr14 / lastPrice) * 100 : 0
-  const rsiVal = rsi14 ?? 50
+  /* Targets – strictly ordered */
+  const rawT1 = entryMid + risk * 1.5
+  const rawT2 = entryMid + risk * 2.5
+  const rawT3 = entryMid + risk * 3.5
 
-  const fibCandidates = Object.values(fib).sort((a, b) => a - b)
+  let t1 = rawT1
+  let t2 = resistance && resistance > entryMid ? Math.max(rawT2, resistance) : rawT2
+  let t3 = Math.max(rawT3, t2 + risk)
 
-  const supportFallback =
-    [...fibCandidates, swingLow]
-      .filter((x) => x < lastPrice)
-      .pop() ?? swingLow
-
-  const resistanceFallback =
-    [swingHigh, ...fibCandidates.slice().reverse()]
-      .filter((x) => x > lastPrice)[0] ?? swingHigh
-
-  const supportBase = support != null && support < lastPrice ? support : supportFallback
-  const resistanceBase = resistance != null && resistance > lastPrice ? resistance : resistanceFallback
-
-  // Entry: small zone above support
-  let entryLow = supportBase * 1.002
-  let entryHigh = supportBase * 1.012
-  let entryMid = (entryLow + entryHigh) / 2
-
-  if (entryLow >= lastPrice) {
-    entryLow = lastPrice * 0.99
-    entryHigh = lastPrice * 0.995
-    entryMid = (entryLow + entryHigh) / 2
-  }
-
-  // Stop: below support by ATR or 0.8%
-  const stop = Math.min(
-    supportBase * 0.992,
-    entryMid - (atr14 ?? (lastPrice * 0.008))
-  )
-
-  // Targets: use resistance and fib extensions
-  const risk = Math.max(entryMid - stop, lastPrice * 0.001) // avoid divide by 0
-  const t1 = Math.max(resistanceBase, entryMid + risk * 1.5)
-  const t2 = Math.max(entryMid + risk * 2.5, swingHigh)
-  const t3 = Math.max(entryMid + risk * 3.5, swingHigh + range * 0.272)
+  if (t2 <= t1) t2 = t1 + risk
+  if (t3 <= t2) t3 = t2 + risk
 
   const rrToT1 = (t1 - entryMid) / risk
   const rrToT2 = (t2 - entryMid) / risk
   const rrToT3 = (t3 - entryMid) / risk
 
-  // Verdict rules
-  const reasons: string[] = []
+  /* Verdict */
   let verdict: Verdict = "Wait"
+  const reasons: string[] = []
 
-  const oversold = rsiVal < 35
-  const overbought = rsiVal > 70
-
-  if (trend === "Bull") reasons.push("Trend filter: bullish (EMA50 above EMA200 and price holding).")
-  if (trend === "Bear") reasons.push("Trend filter: bearish (EMA50 below EMA200 and price weak).")
-  if (trend === "Range") reasons.push("Trend filter: ranging (no clear EMA alignment).")
-
-  if (support != null) reasons.push(`Nearest support detected near ${formatPrice(support, quote)}.`)
-  else reasons.push("No clean pivot support found, using fib-based support estimate.")
-
-  if (resistance != null) reasons.push(`Nearest resistance detected near ${formatPrice(resistance, quote)}.`)
-  else reasons.push("No clean pivot resistance found, using recent swing high estimate.")
+  if (trend === "Bear") {
+    verdict = "Avoid"
+    reasons.push("Trend filter: bearish (EMA50 below EMA200 and price weak).")
+    reasons.push("Entry zone is shown as a hypothetical dip-entry, but verdict is Avoid. Use only if conditions improve.")
+  } else if (rrToT2 >= 2) {
+    verdict = "Buy"
+    reasons.push("Bullish structure with favorable risk-to-reward.")
+  } else {
+    reasons.push("Setup lacks strong confirmation.")
+  }
 
   reasons.push(`RSI(14) = ${round(rsiVal, 1)}.`)
   reasons.push(`ATR(14) volatility ≈ ${round(atrPct, 2)}%.`)
   reasons.push(`Risk-to-reward (mid-entry): T1 ${round(rrToT1, 2)}, T2 ${round(rrToT2, 2)}, T3 ${round(rrToT3, 2)}.`)
 
-  if (trend === "Bear") {
-    verdict = "Avoid"
-    reasons.push("Bear trend makes long entries lower probability.")
-  } else if (overbought) {
-    verdict = "Wait"
-    reasons.push("RSI is high. Timing risk is higher (pullback more likely).")
-  } else if (rrToT2 >= 2 && (trend === "Bull" || oversold)) {
-    verdict = "Buy"
-    reasons.push("Good R:R to target 2 with acceptable trend/timing.")
-  } else {
-    verdict = "Wait"
-    reasons.push("Setup is not strong enough yet. Wait for better entry or confirmation.")
-  }
+  const riskLevel: RiskLevel =
+    atrPct < 1.2 ? "Low" : atrPct > 3 ? "High" : "Medium"
 
-  // Risk level
-  let riskLevel: RiskLevel = "Medium"
-  if (atrPct < 1.2) riskLevel = "Low"
-  else if (atrPct > 3.0) riskLevel = "High"
-
-  // Confidence: simple confluence scoring
-  let score = 0
-  if (trend === "Bull") score += 2
-  if (!overbought) score += 1
-  if (support != null) score += 1
-  if (rrToT2 >= 2) score += 2
-  if (atrPct > 3.0) score -= 1
-
-  let confidence: Confidence = "Medium"
-  if (score >= 5) confidence = "High"
-  else if (score <= 2) confidence = "Low"
-
-  const tradePlan: TradePlan = {
-    entryZone: `${formatPrice(entryLow, quote)} - ${formatPrice(entryHigh, quote)}`,
-    stopLoss: formatPrice(stop, quote),
-    target1: formatPrice(t1, quote),
-    target2: formatPrice(t2, quote),
-    target3: formatPrice(t3, quote),
-  }
+  const confidence: Confidence =
+    verdict === "Buy" && rrToT2 >= 2 ? "High" : "Low"
 
   return {
     verdict,
     levels: { entryLow, entryHigh, entryMid, stop, t1, t2, t3 },
-    tradePlan,
+    tradePlan: {
+      entryZone: `${formatPrice(entryLow, quote)} - ${formatPrice(entryHigh, quote)}`,
+      stopLoss: formatPrice(stop, quote),
+      target1: formatPrice(t1, quote),
+      target2: formatPrice(t2, quote),
+      target3: formatPrice(t3, quote),
+    },
     riskSummary: { riskLevel, confidence, reasons },
     meta: {
       trend,
       rsi: round(rsiVal, 2),
-      atrPct: round(atrPct, 3),
-      rrToT1: round(rrToT1, 3),
-      rrToT2: round(rrToT2, 3),
-      rrToT3: round(rrToT3, 3),
-      support: support ? round(support, guessDp(support)) : null,
-      resistance: resistance ? round(resistance, guessDp(resistance)) : null,
-      fib: Object.fromEntries(
-        Object.entries(fib).map(([k, v]) => [k, round(v, guessDp(v))])
-      ),
+      atrPct: round(atrPct, 2),
+      rrToT1: round(rrToT1, 2),
+      rrToT2: round(rrToT2, 2),
+      rrToT3: round(rrToT3, 2),
+      support,
+      resistance,
+      fib: {},
       lastPrice: round(lastPrice, guessDp(lastPrice)),
       quote,
     },
