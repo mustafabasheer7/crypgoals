@@ -1,21 +1,29 @@
 /**
- * Technical Analysis Engine for Cryptocurrency Trading (LONG-ONLY)
+ * Technical Analysis Engine for Cryptocurrency Trading
  * 
- * This module implements a multi-factor scoring system combining:
- * - Trend Analysis (EMA crossovers, ADX, market structure)
- * - Momentum Indicators (RSI, MACD, Stochastic)
- * - Volatility Measures (ATR, Bollinger Bands)
- * - Price Structure (Support/Resistance, Fibonacci levels)
- * - Volume Analysis (OBV trend, volume confirmation)
+ * This engine mimics professional trading decisions by analyzing:
+ * - Trend Direction & Strength (EMA alignment, ADX)
+ * - Momentum Confirmation (RSI, MACD, Stochastic)
+ * - Price Structure (Support/Resistance, Fibonacci)
+ * - Volume Flow (OBV accumulation/distribution)
+ * - Risk Assessment (ATR-based volatility)
  * 
- * The verdict is derived from a weighted composite score,
- * not a single condition, ensuring nuanced recommendations.
+ * Professional Trading Philosophy:
+ * 1. "The trend is your friend" - Strong trends deserve attention
+ * 2. Volatility = Opportunity - Adjust position size, not avoid trades
+ * 3. Risk-to-Reward matters - Good R:R can offset uncertainty
+ * 4. Multiple confirmations preferred but not always required
  * 
- * NOTE: This is a LONG-ONLY engine. Bearish conditions result in "Wait"
- * rather than "Sell" since we only generate long (buy) trade plans.
+ * Verdicts:
+ * - "Strong Buy": Multiple factors align, high conviction
+ * - "Buy": Trend favorable, acceptable risk, consider entry
+ * - "Accumulate": Trend is good but wait for better price (pullback)
+ * - "Neutral": No clear edge, sit on hands
+ * - "Avoid": Bearish conditions or excessive risk
  */
 
-export type Verdict = "Strong Buy" | "Buy" | "Wait"
+export type Verdict = "Strong Buy" | "Buy" | "Accumulate" | "Neutral" | "Avoid"
+export type EntryType = "Breakout" | "Pullback" | "Current" | "None"
 export type RiskLevel = "Low" | "Medium" | "High" | "Very High"
 export type Confidence = "Low" | "Medium" | "High"
 
@@ -88,6 +96,8 @@ export interface SignalScore {
 
 export interface AnalysisResult {
   verdict: Verdict
+  entryType: EntryType  // Recommended entry strategy
+  positionSize: "Full" | "Half" | "Quarter" | "None"  // Position sizing based on risk
   tradePlan: TradePlan
   riskSummary: RiskSummary
   levels: TradeLevels
@@ -1042,63 +1052,187 @@ export function analyseCandles(pair: string, candles: Candle[]): AnalysisResult 
   const rrToT2 = risk > 0 ? (t2 - entryMid) / risk : 0
   const rrToT3 = risk > 0 ? (t3 - entryMid) / risk : 0
   
-  /* ===== Determine verdict ===== */
+  /* ===== PROFESSIONAL VERDICT LOGIC ===== */
   
-  // LONG-ONLY ENGINE: Only outputs Strong Buy, Buy, or Wait
-  // Negative scores result in "Wait" since we don't generate short trade plans
-  let verdict: Verdict
-  
-  if (compositeScore >= 50) {
-    verdict = "Strong Buy"
-  } else if (compositeScore >= 20) {
-    verdict = "Buy"
-  } else {
-    // All other cases (including negative scores) result in Wait
-    verdict = "Wait"
-  }
-  
-  // Override based on extreme conditions - but be conservative
-  // Only upgrade if trend supports it (don't fight strong trends)
   const isBearishTrend = trend === "Strong Bear" || trend === "Bear"
   const isBullishTrend = trend === "Strong Bull" || trend === "Bull"
+  const isStrongTrend = (adxData?.adx ?? 0) >= 25
+  const isVeryStrongTrend = (adxData?.adx ?? 0) >= 40
+  const isBullishADX = adxData && adxData.plusDI > adxData.minusDI
+  const isBearishADX = adxData && adxData.minusDI > adxData.plusDI
   
-  if (rsi14Val < 25 && momentumScore > 0 && !isBearishTrend && trendScore > -30) {
-    // Extremely oversold with momentum turning AND trend is not bearish - upgrade
-    if (verdict === "Wait") verdict = "Buy"
-    else if (verdict === "Buy") verdict = "Strong Buy"
-  } else if (rsi14Val > 80 && momentumScore < 0 && !isBullishTrend && trendScore < 30) {
-    // Extremely overbought with momentum fading AND trend is not bullish - downgrade
-    if (verdict === "Buy") verdict = "Wait"
-    else if (verdict === "Strong Buy") verdict = "Buy"
+  // Professional traders primarily follow the trend
+  // Key question: Is the trend in our favor?
+  let verdict: Verdict
+  let entryType: EntryType = "None"
+  let positionSize: "Full" | "Half" | "Quarter" | "None" = "None"
+  
+  // === STRONG BUY CONDITIONS ===
+  // Professional sees: Clear trend + momentum confirmation + good structure
+  if (
+    isBullishTrend && 
+    isStrongTrend && 
+    isBullishADX &&
+    momentumScore > 0 &&
+    (structureScore >= 0 || volumeScore > 0)
+  ) {
+    verdict = "Strong Buy"
+    entryType = isBreakoutEntry ? "Breakout" : "Current"
+    positionSize = atrPercent < 5 ? "Full" : "Half"
+  }
+  // === BUY CONDITIONS ===
+  // Professional sees: Trend is bullish, willing to take some risk
+  else if (
+    isBullishTrend && 
+    isBullishADX &&
+    (isStrongTrend || momentumScore > 0 || structureScore > 0)
+  ) {
+    verdict = "Buy"
+    entryType = isBreakoutEntry ? "Breakout" : "Current"
+    positionSize = atrPercent < 4 ? "Half" : "Quarter"
+  }
+  // === ACCUMULATE CONDITIONS ===
+  // Professional sees: Trend is good but price extended, wait for pullback
+  else if (
+    isBullishTrend &&
+    isBullishADX &&
+    rsi14Val > 65 // Overbought short-term
+  ) {
+    verdict = "Accumulate"
+    entryType = "Pullback"
+    positionSize = "Quarter"
+  }
+  // Trend is bullish but momentum is weak - wait for confirmation
+  else if (
+    trend === "Bull" &&
+    !isStrongTrend &&
+    momentumScore < 10
+  ) {
+    verdict = "Accumulate"
+    entryType = "Pullback"
+    positionSize = "Quarter"
+  }
+  // Strong trend exists but some concerns
+  else if (
+    isVeryStrongTrend && 
+    isBullishADX &&
+    !isBearishTrend
+  ) {
+    // Professional rule: "Don't fight strong trends"
+    // Even with mixed signals, a very strong ADX deserves attention
+    verdict = "Accumulate"
+    entryType = "Pullback"
+    positionSize = "Quarter"
+  }
+  // === NEUTRAL CONDITIONS ===
+  // No clear edge - professional sits on hands
+  else if (
+    trend === "Neutral" ||
+    (!isStrongTrend && Math.abs(trendScore) < 30)
+  ) {
+    verdict = "Neutral"
+    entryType = "None"
+    positionSize = "None"
+  }
+  // === AVOID CONDITIONS ===
+  // Professional sees: Bearish trend or high risk
+  else if (isBearishTrend && isStrongTrend && isBearishADX) {
+    verdict = "Avoid"
+    entryType = "None"
+    positionSize = "None"
+  }
+  else if (isBearishTrend && volumeScore < -20) {
+    verdict = "Avoid"
+    entryType = "None"
+    positionSize = "None"
+  }
+  // Default: Neutral when uncertain
+  else {
+    verdict = "Neutral"
+    entryType = "None"
+    positionSize = "None"
   }
   
-  // In strong bearish trends with heavy selling, don't recommend buying
-  if (isBearishTrend && volumeScore < -20 && verdict === "Buy") {
-    verdict = "Wait"
-  }
-  if (isBearishTrend && trendScore < -50 && verdict === "Buy") {
-    verdict = "Wait"
+  // === OVERSOLD BOUNCE OPPORTUNITY ===
+  // Professional sees: Deep oversold in uptrend = buying opportunity
+  if (rsi14Val < 30 && isBullishTrend && isBullishADX) {
+    if (verdict === "Neutral") verdict = "Buy"
+    else if (verdict === "Accumulate") verdict = "Buy"
+    entryType = "Current"
+    positionSize = atrPercent < 5 ? "Half" : "Quarter"
   }
   
-  /* ===== Build reasons ===== */
+  // === OVERBOUGHT WARNING ===
+  // Professional sees: Overbought in uptrend = reduce size, wait for pullback
+  if (rsi14Val > 75 && verdict === "Strong Buy") {
+    verdict = "Accumulate"
+    entryType = "Pullback"
+  }
+  
+  // === RISK ADJUSTMENT ===
+  // Professionals adjust position size based on volatility, not skip trades
+  // Very high volatility = smaller position, not "avoid"
+  if (atrPercent > 8 && positionSize === "Full") {
+    positionSize = "Half"
+  }
+  if (atrPercent > 10 && positionSize === "Half") {
+    positionSize = "Quarter"
+  }
+  
+  // === R:R CHECK ===
+  // Professional requires minimum risk-to-reward
+  if (rrToT1 < 1.0 && verdict !== "Avoid" && verdict !== "Neutral") {
+    // Poor R:R - downgrade
+    if (verdict === "Strong Buy") verdict = "Buy"
+    else if (verdict === "Buy") verdict = "Accumulate"
+  }
+  
+  /* ===== Build Professional Reasoning ===== */
   
   const reasons: string[] = []
   
+  // VERDICT EXPLANATION (most important - why this recommendation)
+  if (verdict === "Strong Buy") {
+    reasons.push(`STRONG BUY: Trend, momentum, and structure align. Professional setup with high conviction.`)
+  } else if (verdict === "Buy") {
+    reasons.push(`BUY: Trend is favorable with acceptable risk. Consider entering position.`)
+  } else if (verdict === "Accumulate") {
+    reasons.push(`ACCUMULATE: Trend is bullish but wait for better entry. Set limit orders at pullback levels.`)
+  } else if (verdict === "Neutral") {
+    reasons.push(`NEUTRAL: No clear edge. Professional traders sit on hands when uncertain.`)
+  } else if (verdict === "Avoid") {
+    reasons.push(`AVOID: Bearish conditions or excessive risk. Capital preservation is priority.`)
+  }
+  
+  // Entry type explanation
+  if (entryType === "Breakout") {
+    reasons.push(`Entry Strategy: Breakout - enter on confirmation above resistance or current levels.`)
+  } else if (entryType === "Pullback") {
+    reasons.push(`Entry Strategy: Pullback - wait for price to retrace to support or moving averages.`)
+  } else if (entryType === "Current") {
+    reasons.push(`Entry Strategy: Current price zone offers acceptable risk-to-reward.`)
+  }
+  
+  // Position size explanation
+  if (positionSize !== "None") {
+    const sizeReason = atrPercent > 6 
+      ? `High volatility (${round(atrPercent, 1)}% ATR) - reduced position size recommended.`
+      : `Volatility is manageable (${round(atrPercent, 1)}% ATR).`
+    reasons.push(`Position Size: ${positionSize} position. ${sizeReason}`)
+  }
+  
   // Note if EMA200 is unavailable (new coin with limited data)
   if (ema200 == null) {
-    reasons.push(`Limited historical data - EMA(200) unavailable. Analysis based on shorter-term indicators only.`)
+    reasons.push(`Note: Limited historical data - analysis based on shorter-term indicators.`)
   }
   
-  // Breakout entry reason
-  if (isBreakoutEntry) {
-    reasons.push(`Strong trend breakout detected (ADX ${round(adxData?.adx ?? 0, 1)}) - ATR-based entry band around current price for pullback or confirmation.`)
-  }
-  
-  // Trend reason
-  if (trendScore > 30) {
-    reasons.push(`Trend is ${trend.toLowerCase()} with EMA alignment favoring longs.`)
-  } else if (trendScore < -30) {
-    reasons.push(`Trend is ${trend.toLowerCase()} with EMA alignment favoring shorts.`)
+  // Trend analysis
+  if (isBullishTrend && isStrongTrend) {
+    reasons.push(`Trend: ${trend} confirmed by ADX ${round(adxData?.adx ?? 0, 1)} - "The trend is your friend."`)
+  } else if (isBullishTrend) {
+    reasons.push(`Trend: ${trend} but ADX ${round(adxData?.adx ?? 0, 1)} shows weak momentum.`)
+  } else if (isBearishTrend && isStrongTrend) {
+    reasons.push(`Trend: ${trend} confirmed - avoid longs until trend reverses.`)
   } else {
     reasons.push(`Trend is neutral - no clear directional bias.`)
   }
@@ -1144,16 +1278,11 @@ export function analyseCandles(pair: string, candles: Candle[]): AnalysisResult 
     }
   }
   
-  // R:R reason
-  reasons.push(`Risk-to-reward ratios: T1 ${round(rrToT1, 2)}:1, T2 ${round(rrToT2, 2)}:1, T3 ${round(rrToT3, 2)}:1.`)
-  
   // Composite score reason
   reasons.push(`Composite signal score: ${round(compositeScore, 1)}/100.`)
   
-  // Add note for Wait verdicts
-  if (verdict === "Wait") {
-    reasons.push(`Verdict is Wait - trade levels shown are informational only. Wait for better conditions before trading.`)
-  }
+  // R:R reason
+  reasons.push(`Risk-to-reward: T1 ${round(rrToT1, 2)}:1, T2 ${round(rrToT2, 2)}:1, T3 ${round(rrToT3, 2)}:1.`)
   
   /* ===== Risk level ===== */
   
@@ -1225,6 +1354,8 @@ export function analyseCandles(pair: string, candles: Candle[]): AnalysisResult 
   
   return {
     verdict,
+    entryType,
+    positionSize,
     levels: { entryLow, entryHigh, entryMid, stop, t1, t2, t3 },
     tradePlan: {
       entryZone: `${formatPrice(entryLow, quote)} - ${formatPrice(entryHigh, quote)}`,

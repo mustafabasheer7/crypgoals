@@ -41,7 +41,7 @@ interface ScanResponse {
 }
 
 type SortKey = "score" | "rsi" | "adx" | "gain" | "price"
-type FilterVerdict = "all" | "buy" | "wait"
+type FilterVerdict = "all" | "buy" | "accumulate" | "neutral"
 type BatchSize = "quick" | "medium" | "full"
 
 const BATCH_INFO: Record<BatchSize, { label: string; count: string; time: string }> = {
@@ -81,7 +81,9 @@ export default function ScanPage() {
   const getVerdictStyle = (verdict: string) => {
     if (verdict === "Strong Buy") return "bg-emerald-500/20 text-emerald-300 border-emerald-500/50"
     if (verdict === "Buy") return "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
-    return "bg-amber-500/10 text-amber-400 border-amber-500/30"
+    if (verdict === "Accumulate") return "bg-cyan-500/10 text-cyan-400 border-cyan-500/30"
+    if (verdict === "Avoid") return "bg-rose-500/10 text-rose-400 border-rose-500/30"
+    return "bg-zinc-500/10 text-zinc-400 border-zinc-500/30" // Neutral
   }
 
   const getTrendStyle = (trend: string) => {
@@ -118,8 +120,10 @@ export default function ScanPage() {
     // Apply verdict filter
     if (filterVerdict === "buy") {
       filtered = filtered.filter(r => r.data?.verdict === "Buy" || r.data?.verdict === "Strong Buy")
-    } else if (filterVerdict === "wait") {
-      filtered = filtered.filter(r => r.data?.verdict === "Wait")
+    } else if (filterVerdict === "accumulate") {
+      filtered = filtered.filter(r => r.data?.verdict === "Accumulate")
+    } else if (filterVerdict === "neutral") {
+      filtered = filtered.filter(r => r.data?.verdict === "Neutral" || r.data?.verdict === "Avoid")
     }
     
     // Apply sort
@@ -246,7 +250,7 @@ export default function ScanPage() {
                           : "bg-zinc-800 text-zinc-400 hover:bg-zinc-700"
                       }`}
                     >
-                      {f === "all" ? "All" : f === "buy" ? "Buy Signals" : "Wait"}
+                      {f === "all" ? "All" : f === "buy" ? "Buy Signals" : f === "accumulate" ? "Accumulate" : "Neutral/Avoid"}
                     </button>
                   ))}
                 </div>

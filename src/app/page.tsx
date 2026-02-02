@@ -15,7 +15,9 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 
-type Verdict = "Strong Buy" | "Buy" | "Wait"
+type Verdict = "Strong Buy" | "Buy" | "Accumulate" | "Neutral" | "Avoid"
+type EntryType = "Breakout" | "Pullback" | "Current" | "None"
+type PositionSize = "Full" | "Half" | "Quarter" | "None"
 type RiskLevel = "Low" | "Medium" | "High" | "Very High"
 type Confidence = "Low" | "Medium" | "High"
 
@@ -67,6 +69,8 @@ interface IndicatorValues {
 
 interface AnalysisResult {
   verdict: Verdict
+  entryType: EntryType
+  positionSize: PositionSize
   tradePlan: TradePlan
   riskSummary: RiskSummary
   levels: {
@@ -453,42 +457,22 @@ const riskInfo = {
 /* ========== VERDICT INFO ========== */
 
 function VerdictExplanation({ verdict, score, trend }: { verdict: Verdict; score: number; trend: string }) {
-  // Generate context-aware explanation based on actual score and trend
+  // Generate professional-style explanation
   const getExplanation = (): string => {
-    const isBearishTrend = trend.includes("Bear")
-    const isStrongBearish = trend === "Strong Bear"
-    
-    // Specific explanations based on actual conditions
-    if (verdict === "Strong Buy" && score >= 50) {
-      return "Multiple indicators strongly agree this is a good buying opportunity. Trend, momentum, and structure all look favorable."
+    switch (verdict) {
+      case "Strong Buy":
+        return "Professional setup: Trend, momentum, and structure all align. High conviction trade with favorable risk-reward."
+      case "Buy":
+        return "Trend is in your favor with acceptable risk. Consider entering a position with appropriate size."
+      case "Accumulate":
+        return "Trend is bullish but current price may be extended. Set limit orders at pullback levels or wait for better entry."
+      case "Neutral":
+        return "No clear edge in either direction. Professional traders sit on their hands when uncertain."
+      case "Avoid":
+        return "Bearish conditions or excessive risk detected. Protect capital - there will be better opportunities."
+      default:
+        return "Review the analysis details below."
     }
-    
-    if (verdict === "Buy" && score >= 20) {
-      return "Most signals are positive. Consider entering a position, but be aware of the risk level."
-    }
-    
-    if (verdict === "Wait") {
-      if (isStrongBearish && score < -30) {
-        return "Strong bearish conditions detected. This is not a good time to buy. Wait for trend reversal and bullish confirmation."
-      }
-      if (isBearishTrend && score < 0) {
-        return "Bearish trend detected. Even though some indicators look oversold, the trend is against buying. Wait for trend reversal confirmation."
-      }
-      if (score < -20) {
-        return "Signals are negative. Avoid buying in current conditions. Wait for the market to stabilize or turn bullish."
-      }
-      if (score < 0) {
-        return "Overall signals are slightly negative. Wait for clearer bullish confirmation before entering."
-      }
-      return "Mixed signals or uncertain conditions. Better to wait for a clearer setup before trading."
-    }
-    
-    // Fallback for edge cases
-    if (score < 0 && (verdict === "Buy" || verdict === "Strong Buy")) {
-      return "Some oversold conditions detected, but overall trend is weak. Proceed with caution."
-    }
-    
-    return "Analyze the individual signals below to understand the full picture."
   }
   
   const scoreDescription = score >= 50 ? "Very bullish" 
@@ -609,12 +593,26 @@ export default function HomePage() {
           accent: "from-emerald-500 to-teal-500",
           bg: "bg-emerald-500/5",
         }
-      case "Wait":
+      case "Accumulate":
         return {
-          text: "text-amber-400",
-          border: "border-amber-500/40",
-          accent: "from-amber-500 to-orange-500",
-          bg: "bg-amber-500/5",
+          text: "text-cyan-400",
+          border: "border-cyan-500/40",
+          accent: "from-cyan-500 to-blue-500",
+          bg: "bg-cyan-500/5",
+        }
+      case "Neutral":
+        return {
+          text: "text-zinc-400",
+          border: "border-zinc-500/40",
+          accent: "from-zinc-500 to-slate-500",
+          bg: "bg-zinc-500/5",
+        }
+      case "Avoid":
+        return {
+          text: "text-rose-400",
+          border: "border-rose-500/40",
+          accent: "from-rose-500 to-red-500",
+          bg: "bg-rose-500/5",
         }
     }
   }
@@ -822,10 +820,30 @@ export default function HomePage() {
                     >
                       {result.verdict}
                     </span>
+                    {/* Entry Type & Position Size */}
+                    {result.entryType !== "None" && (
+                      <div className="mt-4 flex items-center justify-center gap-3">
+                        <Badge variant="outline" className="text-cyan-400 border-cyan-500/30 bg-cyan-500/10">
+                          {result.entryType} Entry
+                        </Badge>
+                        <Badge variant="outline" className={`${
+                          result.positionSize === "Full" ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" :
+                          result.positionSize === "Half" ? "text-amber-400 border-amber-500/30 bg-amber-500/10" :
+                          "text-zinc-400 border-zinc-500/30 bg-zinc-500/10"
+                        }`}>
+                          {result.positionSize} Position
+                        </Badge>
+                      </div>
+                    )}
+                    
                     <div className="mt-4 flex items-center justify-center gap-2">
                       <span className="text-xs text-zinc-500">Trend:</span>
                       <span className={`text-sm font-medium ${getTrendStyle(result.meta.trend)}`}>
                         {result.meta.trend}
+                      </span>
+                      <span className="text-xs text-zinc-500 ml-2">ADX:</span>
+                      <span className={`text-sm font-medium ${result.meta.adx > 25 ? "text-emerald-400" : "text-zinc-400"}`}>
+                        {result.meta.adx.toFixed(0)}
                       </span>
                     </div>
                     <div className="mt-2 text-3xl font-semibold text-white">
@@ -834,7 +852,7 @@ export default function HomePage() {
                       <span className="text-sm text-zinc-500 ml-1">/100</span>
                     </div>
                     <p className="text-xs text-zinc-500 mt-1 flex items-center justify-center">
-                      Overall Score
+                      Signal Score
                       <InfoTooltip
                         title={riskInfo.compositeScore.title}
                         explanation={riskInfo.compositeScore.explanation}
