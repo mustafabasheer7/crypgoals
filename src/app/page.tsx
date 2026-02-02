@@ -1,6 +1,8 @@
 "use client"
 
-import { useState, FormEvent } from "react"
+import { useState, FormEvent, useEffect } from "react"
+import { useSearchParams } from "next/navigation"
+import Link from "next/link"
 import {
   Card,
   CardContent,
@@ -512,6 +514,8 @@ function VerdictExplanation({ verdict, score, trend }: { verdict: Verdict; score
 }
 
 export default function HomePage() {
+  const searchParams = useSearchParams()
+  
   const [pair, setPair] = useState("")
   const [isValidPair, setIsValidPair] = useState(true)
   const [isLoading, setIsLoading] = useState(false)
@@ -521,6 +525,15 @@ export default function HomePage() {
 
   const [currentPrice, setCurrentPrice] = useState<number | null>(null)
   const [priceError, setPriceError] = useState<string | null>(null)
+  
+  // Read pair from URL query parameter (from scanner)
+  useEffect(() => {
+    const pairParam = searchParams.get("pair")
+    if (pairParam && validatePair(pairParam)) {
+      setPair(pairParam)
+      setIsValidPair(true)
+    }
+  }, [searchParams])
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value
@@ -681,6 +694,13 @@ export default function HomePage() {
           <p className="text-zinc-500 text-sm mt-2">
             Click the <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-zinc-700/50 text-zinc-400 text-xs mx-1">?</span> icons for explanations
           </p>
+          <div className="mt-6">
+            <Link href="/scan">
+              <Button variant="outline" className="border-indigo-500/50 text-indigo-400 hover:bg-indigo-500/10 hover:text-indigo-300">
+                Scan All Coins for Opportunities
+              </Button>
+            </Link>
+          </div>
         </header>
 
         <Card className="bg-zinc-900/50 border-zinc-800/50 backdrop-blur-sm rounded-xl shadow-xl">
