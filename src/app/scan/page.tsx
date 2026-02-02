@@ -45,9 +45,9 @@ type FilterVerdict = "all" | "buy" | "accumulate" | "neutral"
 type BatchSize = "quick" | "medium" | "full"
 
 const BATCH_INFO: Record<BatchSize, { label: string; count: string; time: string }> = {
-  quick: { label: "Quick Scan", count: "40 coins", time: "~30 sec" },
-  medium: { label: "Medium Scan", count: "100 coins", time: "~1.5 min" },
-  full: { label: "Full Scan", count: "180+ coins", time: "~3 min" },
+  quick: { label: "Quick Scan", count: "50 coins", time: "~40 sec" },
+  medium: { label: "Medium Scan", count: "150 coins", time: "~2.5 min" },
+  full: { label: "Full Scan", count: "300+ coins", time: "~5 min" },
 }
 
 export default function ScanPage() {

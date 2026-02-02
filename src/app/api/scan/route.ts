@@ -2,17 +2,18 @@ import { NextRequest, NextResponse } from "next/server"
 import type { Candle } from "@/lib/kraken"
 import { analyseCandles } from "@/lib/analysis"
 
-// All available trading pairs (300 coins)
+// All available trading pairs (400+ coins)
 const ALL_PAIRS = [
   // Top coins by market cap
-  "BTC/USD", "ETH/USD", "XRP/USD", "SOL/USD", "DOGE/USD", "ADA/USD", "BCH/USD",
-  "LINK/USD", "XLM/USD", "LTC/USD", "SUI/USD", "AVAX/USD", "SHIB/USD", "HBAR/USD",
-  "TON/USD", "CRO/USD", "DOT/USD", "UNI/USD", "MNT/USD", "AAVE/USD", "TAO/USD",
-  "PEPE/USD", "NEAR/USD", "ETC/USD", "ICP/USD", "ONDO/USD", "WLD/USD", "POL/USD",
-  "ENA/USD", "QNT/USD", "APT/USD", "ATOM/USD", "ALGO/USD", "FLR/USD", "KAS/USD",
-  "RENDER/USD", "ARB/USD", "FIL/USD", "VET/USD", "XDC/USD", "BONK/USD", "JUP/USD",
-  "SEI/USD", "DASH/USD", "CAKE/USD", "XTZ/USD", "PENGU/USD", "CHZ/USD", "STX/USD",
-  "OP/USD", "FET/USD", "CRV/USD", "INJ/USD", "ZRO/USD", "LDO/USD", "AERO/USD",
+  "BTC/USD", "ETH/USD", "XRP/USD", "SOL/USD", "BNB/USD", "DOGE/USD", "ADA/USD", 
+  "TRX/USD", "WBTC/USD", "BCH/USD", "LINK/USD", "XLM/USD", "LTC/USD", "SUI/USD", 
+  "AVAX/USD", "SHIB/USD", "HBAR/USD", "TON/USD", "CRO/USD", "DOT/USD", "UNI/USD", 
+  "MNT/USD", "AAVE/USD", "TAO/USD", "PEPE/USD", "NEAR/USD", "ETC/USD", "ICP/USD", 
+  "ONDO/USD", "WLD/USD", "POL/USD", "ENA/USD", "QNT/USD", "APT/USD", "ATOM/USD", 
+  "ALGO/USD", "FLR/USD", "KAS/USD", "RENDER/USD", "ARB/USD", "FIL/USD", "VET/USD", 
+  "XDC/USD", "BONK/USD", "JUP/USD", "SEI/USD", "DASH/USD", "CAKE/USD", "XTZ/USD", 
+  "PENGU/USD", "CHZ/USD", "STX/USD", "OP/USD", "FET/USD", "CRV/USD", "INJ/USD", 
+  "ZRO/USD", "LDO/USD", "AERO/USD", "XMR/USD", "ZEC/USD",
   
   // DeFi & Infrastructure
   "SUN/USD", "FLOKI/USD", "TIA/USD", "GRT/USD", "GNO/USD", "PYTH/USD", "AXS/USD",
@@ -23,7 +24,8 @@ const ALL_PAIRS = [
   "JTO/USD", "W/USD", "SNX/USD", "ATH/USD", "QTUM/USD", "RSR/USD", "DYDX/USD",
   "AKT/USD", "GRASS/USD", "YFI/USD", "KSM/USD", "SUPER/USD", "ZRX/USD", "MINA/USD",
   "COW/USD", "FLOW/USD", "KAITO/USD", "T/USD", "SAFE/USD", "NANO/USD", "TURBO/USD",
-  "AIOZ/USD", "ALEO/USD", "ZETA/USD", "FXS/USD", "ARKHAM/USD",
+  "AIOZ/USD", "ALEO/USD", "ZETA/USD", "FXS/USD", "ARKM/USD", "MORPHO/USD", "ETHFI/USD",
+  "JITOSOL/USD", "MSOL/USD", "LSETH/USD", "METH/USD", "TBTC/USD", "SKY/USD",
   
   // More altcoins
   "MOG/USD", "SC/USD", "ASTR/USD", "NMR/USD", "REQ/USD", "MOCA/USD", "KAVA/USD",
@@ -37,15 +39,47 @@ const ALL_PAIRS = [
   "RLC/USD", "NEIRO/USD", "SPELL/USD", "SHX/USD", "DRV/USD", "BNT/USD", "BTR/USD",
   "PRIME/USD", "PEAQ/USD", "B2/USD", "EWT/USD", "OPEN/USD", "CHEX/USD", "LSK/USD",
   "AUDIO/USD", "BIGTIME/USD", "YGG/USD", "FLUX/USD", "ANIME/USD", "CYBER/USD",
-  "OSMO/USD", "AUCTION/USD", "LQTY/USD",
+  "OSMO/USD", "AUCTION/USD", "LQTY/USD", "EDU/USD", "CCD/USD", "ZORA/USD",
+  
+  // New additions from user list
+  "HYPE/USD", "XAUT/USD", "PAXG/USD", "BGB/USD", "PUMP/USD", "ASTER/USD", "MYX/USD",
+  "NIGHT/USD", "IP/USD", "VIRTUAL/USD", "JST/USD", "RIVER/USD", "BTT/USD", 
+  "SYRUP/USD", "APENFT/USD", "AB/USD", "SENT/USD", "ADI/USD", "XPL/USD", "H/USD", 
+  "MON/USD", "S/USD", "FF/USD", "CMETH/USD", "VSN/USD", "LION/USD", "A/USD", 
+  "SOSO/USD", "WAL/USD", "GOMINING/USD", "0G/USD", "KMNO/USD", "KTA/USD", "MET/USD", 
+  "CASH/USD", "SKR/USD", "ICNT/USD", "VVV/USD", "LINEA/USD", "RAVE/USD", "SOON/USD", 
+  "DBR/USD", "ALCH/USD", "SXT/USD", "ESPORTS/USD", "ME/USD", "PROVE/USD", "RED/USD", 
+  "WMTX/USD", "AVNT/USD", "GWEI/USD", "Q/USD", "SAHARA/USD", "ZIG/USD", "UAI/USD", 
+  "KGEN/USD", "ACU/USD", "BREV/USD", "PLAY/USD", "AIO/USD",
   
   // Meme coins
   "TRUMP/USD", "MELANIA/USD", "DOG/USD", "FARTCOIN/USD", "CHEEMS/USD", "TOSHI/USD",
   "MOODENG/USD", "NPC/USD", "USELESS/USD", "REKT/USD", "BANANAS31/USD", "CLANKER/USD",
   
-  // Gaming & Metaverse
-  "AXS/USD", "SAND/USD", "MANA/USD", "GALA/USD", "IMX/USD", "ENJ/USD", "APE/USD",
-  "BEAM/USD", "BIGTIME/USD", "YGG/USD", "SUPER/USD"
+  // Gaming & Metaverse  
+  "BIGTIME/USD", "MAGIC/USD", "GODS/USD", "ILV/USD", "ALICE/USD", "GHST/USD",
+  "STARL/USD", "HERO/USD", "PYR/USD", "WILD/USD", "REVV/USD", "ATLAS/USD",
+  
+  // AI & Data
+  "OCEAN/USD", "AGIX/USD", "NMR/USD", "RLC/USD", "GLM/USD", "CTSI/USD", "ROSE/USD",
+  
+  // Layer 2 & Scaling
+  "MATIC/USD", "LRC/USD", "BOBA/USD", "METIS/USD", "CELR/USD", "OMG/USD", "SKL/USD",
+  
+  // Privacy coins
+  "XMR/USD", "ZEC/USD", "SCRT/USD", "ARRR/USD", "FIRO/USD", "BEAM/USD",
+  
+  // Exchange tokens
+  "BNB/USD", "CRO/USD", "FTT/USD", "LEO/USD", "OKB/USD", "KCS/USD", "HT/USD", "MX/USD",
+  
+  // Storage & Computing
+  "FIL/USD", "AR/USD", "SC/USD", "STORJ/USD", "HOT/USD", "ANKR/USD", "AKT/USD",
+  
+  // Oracle networks
+  "LINK/USD", "BAND/USD", "API3/USD", "DIA/USD", "TRB/USD", "UMA/USD",
+  
+  // Cross-chain
+  "RUNE/USD", "REN/USD", "MULTI/USD", "SYN/USD", "STG/USD", "CCIP/USD"
 ]
 
 // Remove duplicates and create unique list
@@ -78,9 +112,9 @@ export async function GET(req: NextRequest) {
     ? pairsParam.split(",").map(p => p.trim().toUpperCase())
     : DEFAULT_PAIRS
   
-  // Batch size: "quick" (40), "medium" (100), "full" (all ~180)
+  // Batch size: "quick" (50), "medium" (150), "full" (all ~300+)
   const batchSize = searchParams.get("batch") || "quick"
-  const maxPairs = batchSize === "full" ? 200 : batchSize === "medium" ? 100 : 40
+  const maxPairs = batchSize === "full" ? 400 : batchSize === "medium" ? 150 : 50
   const limitedPairs = pairs.slice(0, maxPairs)
   
   const interval = 240 // 4-hour candles
