@@ -1,0 +1,34 @@
+{
+  "name": "CrypGoals - Crypto Analysis",
+  "short_name": "CrypGoals",
+  "description": "Professional cryptocurrency trading analysis and signals",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#09090b",
+  "theme_color": "#6366f1",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["finance", "business", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Scan Market",
+      "short_name": "Scan",
+      "description": "Scan all coins for opportunities",
+      "url": "/scan",
+      "icons": [{ "src": "/icons/icon.svg", "sizes": "any" }]
+    }
+  ]
+}
