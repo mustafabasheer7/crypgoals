@@ -1,206 +1,206 @@
-"use client"
+"use client";
 
-import { useState, FormEvent, useEffect } from "react"
-import { useSearchParams } from "next/navigation"
-import Link from "next/link"
+import { useState, FormEvent, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
-} from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Badge } from "@/components/ui/badge"
-import { Separator } from "@/components/ui/separator"
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
-type Verdict = "Strong Buy" | "Buy" | "Accumulate" | "Neutral" | "Avoid"
-type EntryType = "Breakout" | "Pullback" | "Current" | "None"
-type PositionSize = "Full" | "Half" | "Quarter" | "None"
-type RiskLevel = "Low" | "Medium" | "High" | "Very High"
-type Confidence = "Low" | "Medium" | "High"
+type Verdict = "Strong Buy" | "Buy" | "Accumulate" | "Neutral" | "Avoid";
+type EntryType = "Breakout" | "Pullback" | "Current" | "None";
+type PositionSize = "Full" | "Half" | "Quarter" | "None";
+type RiskLevel = "Low" | "Medium" | "High" | "Very High";
+type Confidence = "Low" | "Medium" | "High";
 
 interface TradePlan {
-  entryZone: string
-  stopLoss: string
-  target1: string
-  target2: string
-  target3: string
+  entryZone: string;
+  stopLoss: string;
+  target1: string;
+  target2: string;
+  target3: string;
 }
 
 interface RiskSummary {
-  riskLevel: RiskLevel
-  confidence: Confidence
-  reasons: string[]
+  riskLevel: RiskLevel;
+  confidence: Confidence;
+  reasons: string[];
 }
 
 interface SignalScore {
-  trend: number
-  momentum: number
-  volatility: number
-  structure: number
-  volume: number
-  composite: number
+  trend: number;
+  momentum: number;
+  volatility: number;
+  structure: number;
+  volume: number;
+  composite: number;
 }
 
 interface IndicatorValues {
-  rsi14: number
-  rsi7: number
-  ema20: number
-  ema50: number
-  ema200: number
-  macdLine: number
-  macdSignal: number
-  macdHistogram: number
-  atr14: number
-  atrPercent: number
-  stochK: number
-  stochD: number
-  bbUpper: number
-  bbMiddle: number
-  bbLower: number
-  bbWidth: number
-  obvTrend: "Rising" | "Falling" | "Flat"
-  adx: number
-  plusDI: number
-  minusDI: number
+  rsi14: number;
+  rsi7: number;
+  ema20: number;
+  ema50: number;
+  ema200: number;
+  macdLine: number;
+  macdSignal: number;
+  macdHistogram: number;
+  atr14: number;
+  atrPercent: number;
+  stochK: number;
+  stochD: number;
+  bbUpper: number;
+  bbMiddle: number;
+  bbLower: number;
+  bbWidth: number;
+  obvTrend: "Rising" | "Falling" | "Flat";
+  adx: number;
+  plusDI: number;
+  minusDI: number;
 }
 
 interface AnalysisResult {
-  verdict: Verdict
-  entryType: EntryType
-  positionSize: PositionSize
-  tradePlan: TradePlan
-  riskSummary: RiskSummary
+  verdict: Verdict;
+  entryType: EntryType;
+  positionSize: PositionSize;
+  tradePlan: TradePlan;
+  riskSummary: RiskSummary;
   levels: {
-    entryLow: number
-    entryHigh: number
-    entryMid: number
-    stop: number
-    t1: number
-    t2: number
-    t3: number
-  }
+    entryLow: number;
+    entryHigh: number;
+    entryMid: number;
+    stop: number;
+    t1: number;
+    t2: number;
+    t3: number;
+  };
   meta: {
-    trend: "Strong Bull" | "Bull" | "Neutral" | "Bear" | "Strong Bear"
-    adx: number
-    indicators: IndicatorValues
-    signals: SignalScore
-    support: number | null
-    resistance: number | null
-    swingHigh: number
-    swingLow: number
-    lastPrice: number
-    quote: string
-  }
+    trend: "Strong Bull" | "Bull" | "Neutral" | "Bear" | "Strong Bear";
+    adx: number;
+    indicators: IndicatorValues;
+    signals: SignalScore;
+    support: number | null;
+    resistance: number | null;
+    swingHigh: number;
+    swingLow: number;
+    lastPrice: number;
+    quote: string;
+  };
 }
 
-const PAIR_REGEX = /^[A-Z0-9]{2,10}[\/-][A-Z0-9]{2,10}$/i
+const PAIR_REGEX = /^[A-Z0-9]{2,10}[\/-][A-Z0-9]{2,10}$/i;
 
 function validatePair(value: string): boolean {
-  if (!value.trim()) return true
-  return PAIR_REGEX.test(value.trim())
+  if (!value.trim()) return true;
+  return PAIR_REGEX.test(value.trim());
 }
 
 function normalisePair(value: string): string {
-  return value.trim().toUpperCase().replace(/-/g, "/")
+  return value.trim().toUpperCase().replace(/-/g, "/");
 }
 
 function formatUsd(n: number): string {
   // Determine appropriate decimal places based on price magnitude
-  let decimals: number
-  if (n >= 10000) decimals = 2
-  else if (n >= 1000) decimals = 3
-  else if (n >= 100) decimals = 4
-  else if (n >= 1) decimals = 5
-  else if (n >= 0.01) decimals = 6
-  else if (n >= 0.0001) decimals = 8
-  else decimals = 10  // For very small prices like meme coins
-  
-  return n.toLocaleString(undefined, { 
-    style: "currency", 
+  let decimals: number;
+  if (n >= 10000) decimals = 2;
+  else if (n >= 1000) decimals = 3;
+  else if (n >= 100) decimals = 4;
+  else if (n >= 1) decimals = 5;
+  else if (n >= 0.01) decimals = 6;
+  else if (n >= 0.0001) decimals = 8;
+  else decimals = 10; // For very small prices like meme coins
+
+  return n.toLocaleString(undefined, {
+    style: "currency",
     currency: "USD",
     minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals
-  })
+    maximumFractionDigits: decimals,
+  });
 }
 
 async function fetchAnalysis(pair: string): Promise<AnalysisResult> {
   const res = await fetch(
     `/api/analyse?pair=${encodeURIComponent(pair)}&interval=240&limit=300`,
-    { method: "GET" }
-  )
+    { method: "GET" },
+  );
 
-  const text = await res.text()
+  const text = await res.text();
 
-  let data: any = null
+  let data: any = null;
   try {
-    data = text ? JSON.parse(text) : null
+    data = text ? JSON.parse(text) : null;
   } catch {
-    data = null
+    data = null;
   }
 
   if (!res.ok) {
-    const msg = data?.error ?? text ?? `Request failed (${res.status})`
-    throw new Error(msg)
+    const msg = data?.error ?? text ?? `Request failed (${res.status})`;
+    throw new Error(msg);
   }
 
   if (!data) {
-    throw new Error("Empty response from /api/analyse")
+    throw new Error("Empty response from /api/analyse");
   }
 
-  return data as AnalysisResult
+  return data as AnalysisResult;
 }
 
 async function fetchCurrentPrice(pair: string): Promise<number> {
   const res = await fetch(
     `/api/kraken/ohlc?pair=${encodeURIComponent(pair)}&interval=1&limit=2`,
-    { method: "GET" }
-  )
-  const json = await res.json()
-  if (!res.ok) throw new Error(json?.error ?? "Price fetch failed")
+    { method: "GET" },
+  );
+  const json = await res.json();
+  if (!res.ok) throw new Error(json?.error ?? "Price fetch failed");
 
-  const candles = json?.candles
+  const candles = json?.candles;
   if (!Array.isArray(candles) || candles.length === 0) {
-    throw new Error("No price data returned")
+    throw new Error("No price data returned");
   }
 
-  const last = candles[candles.length - 1]
-  const close = Number(last?.close)
-  if (!Number.isFinite(close)) throw new Error("Invalid price data")
+  const last = candles[candles.length - 1];
+  const close = Number(last?.close);
+  if (!Number.isFinite(close)) throw new Error("Invalid price data");
 
-  return close
+  return close;
 }
 
 /* ========== INFO TOOLTIP COMPONENT ========== */
 
-function InfoTooltip({ 
-  title, 
-  explanation, 
+function InfoTooltip({
+  title,
+  explanation,
   interpretation,
-  importance 
-}: { 
-  title: string
-  explanation: string
-  interpretation: string
-  importance: "High" | "Medium" | "Low"
+  importance,
+}: {
+  title: string;
+  explanation: string;
+  interpretation: string;
+  importance: "High" | "Medium" | "Low";
 }) {
-  const [isOpen, setIsOpen] = useState(false)
-  
+  const [isOpen, setIsOpen] = useState(false);
+
   const importanceColors = {
     High: "text-emerald-400",
-    Medium: "text-amber-400", 
-    Low: "text-zinc-400"
-  }
-  
+    Medium: "text-amber-400",
+    Low: "text-zinc-400",
+  };
+
   return (
     <div className="relative inline-block">
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         onBlur={() => setTimeout(() => setIsOpen(false), 150)}
-        className="ml-1.5 w-4 h-4 rounded-full bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-400 hover:text-zinc-300 inline-flex items-center justify-center text-xs transition-colors"
+        className="ml-1.5 w-4 h-4 rounded-full bg-zinc-700/50 hover:bg-indigo-600/50 text-zinc-400 hover:text-white inline-flex items-center justify-center text-xs transition-all duration-200 cursor-pointer hover:scale-110"
         aria-label={`Info about ${title}`}
       >
         ?
@@ -223,44 +223,69 @@ function InfoTooltip({
         </div>
       )}
     </div>
-  )
+  );
 }
 
 /* ========== SIGNAL BAR WITH INFO ========== */
 
-const signalInfo: Record<string, { explanation: string; interpretation: string; importance: "High" | "Medium" | "Low" }> = {
+const signalInfo: Record<
+  string,
+  {
+    explanation: string;
+    interpretation: string;
+    importance: "High" | "Medium" | "Low";
+  }
+> = {
   Trend: {
-    explanation: "Measures if the price is generally going up, down, or sideways over time. Think of it like the overall direction of a river.",
-    interpretation: "Positive = price trending upward (good for buying). Negative = price trending downward (be careful).",
-    importance: "High"
+    explanation:
+      "Measures if the price is generally going up, down, or sideways over time. Think of it like the overall direction of a river.",
+    interpretation:
+      "Positive = price trending upward (good for buying). Negative = price trending downward (be careful).",
+    importance: "High",
   },
   Momentum: {
-    explanation: "Shows how fast the price is moving and if it's speeding up or slowing down. Like checking if a car is accelerating or braking.",
-    interpretation: "Positive = price has strong upward push. Negative = price is losing steam or falling.",
-    importance: "High"
+    explanation:
+      "Shows how fast the price is moving and if it's speeding up or slowing down. Like checking if a car is accelerating or braking.",
+    interpretation:
+      "Positive = price has strong upward push. Negative = price is losing steam or falling.",
+    importance: "High",
   },
   Structure: {
-    explanation: "Looks at where key price levels are - like floors (support) and ceilings (resistance) that price tends to bounce off.",
-    interpretation: "Positive = price is near a good 'floor' to bounce from. Negative = price is near a 'ceiling' that might push it down.",
-    importance: "Medium"
+    explanation:
+      "Looks at where key price levels are - like floors (support) and ceilings (resistance) that price tends to bounce off.",
+    interpretation:
+      "Positive = price is near a good 'floor' to bounce from. Negative = price is near a 'ceiling' that might push it down.",
+    importance: "Medium",
   },
   Volume: {
-    explanation: "Tracks if more people are buying or selling. High buying volume with rising prices confirms the move is real.",
-    interpretation: "Positive = more buying activity (accumulation). Negative = more selling activity (distribution).",
-    importance: "Medium"
+    explanation:
+      "Tracks if more people are buying or selling. High buying volume with rising prices confirms the move is real.",
+    interpretation:
+      "Positive = more buying activity (accumulation). Negative = more selling activity (distribution).",
+    importance: "Medium",
   },
   Volatility: {
-    explanation: "Measures how wildly the price swings up and down. Higher volatility = more risk but also more opportunity.",
-    interpretation: "Positive = calm, stable price movement. Negative = wild, unpredictable swings.",
-    importance: "Low"
-  }
-}
+    explanation:
+      "Measures how wildly the price swings up and down. Higher volatility = more risk but also more opportunity.",
+    interpretation:
+      "Positive = calm, stable price movement. Negative = wild, unpredictable swings.",
+    importance: "Low",
+  },
+};
 
-function SignalBar({ label, value, max = 100 }: { label: string; value: number; max?: number }) {
-  const normalized = Math.abs(value) / max
-  const isPositive = value >= 0
-  const info = signalInfo[label]
-  
+function SignalBar({
+  label,
+  value,
+  max = 100,
+}: {
+  label: string;
+  value: number;
+  max?: number;
+}) {
+  const normalized = Math.abs(value) / max;
+  const isPositive = value >= 0;
+  const info = signalInfo[label];
+
   return (
     <div className="space-y-1">
       <div className="flex justify-between text-xs items-center">
@@ -276,7 +301,8 @@ function SignalBar({ label, value, max = 100 }: { label: string; value: number; 
           )}
         </span>
         <span className={isPositive ? "text-emerald-400" : "text-rose-400"}>
-          {value > 0 ? "+" : ""}{value.toFixed(1)}
+          {value > 0 ? "+" : ""}
+          {value.toFixed(1)}
         </span>
       </div>
       <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
@@ -288,79 +314,104 @@ function SignalBar({ label, value, max = 100 }: { label: string; value: number; 
         />
       </div>
     </div>
-  )
+  );
 }
 
 /* ========== INDICATOR INFO ========== */
 
-const indicatorInfo: Record<string, { explanation: string; goodRange: string; badRange: string; importance: "High" | "Medium" | "Low" }> = {
+const indicatorInfo: Record<
+  string,
+  {
+    explanation: string;
+    goodRange: string;
+    badRange: string;
+    importance: "High" | "Medium" | "Low";
+  }
+> = {
   "RSI (14)": {
-    explanation: "Relative Strength Index - measures if something has been bought too much (overbought) or sold too much (oversold) over the last 14 periods.",
-    goodRange: "Below 30 = oversold (potential buying opportunity). Between 40-60 = healthy.",
+    explanation:
+      "Relative Strength Index - measures if something has been bought too much (overbought) or sold too much (oversold) over the last 14 periods.",
+    goodRange:
+      "Below 30 = oversold (potential buying opportunity). Between 40-60 = healthy.",
     badRange: "Above 70 = overbought (price might drop soon).",
-    importance: "High"
+    importance: "High",
   },
   "RSI (7)": {
-    explanation: "Faster version of RSI that reacts more quickly to price changes. Good for spotting short-term shifts.",
+    explanation:
+      "Faster version of RSI that reacts more quickly to price changes. Good for spotting short-term shifts.",
     goodRange: "Below 30 = oversold. Works best when it agrees with RSI(14).",
-    badRange: "Above 70 = overbought. Can give false signals because it's so fast.",
-    importance: "Medium"
+    badRange:
+      "Above 70 = overbought. Can give false signals because it's so fast.",
+    importance: "Medium",
   },
-  "MACD": {
-    explanation: "Moving Average Convergence Divergence - tracks the relationship between two moving averages. Shows if momentum is building or fading.",
-    goodRange: "Positive and rising = strong upward momentum. Green bars getting taller = acceleration.",
-    badRange: "Negative and falling = downward momentum. Red bars getting taller = selling pressure.",
-    importance: "High"
+  MACD: {
+    explanation:
+      "Moving Average Convergence Divergence - tracks the relationship between two moving averages. Shows if momentum is building or fading.",
+    goodRange:
+      "Positive and rising = strong upward momentum. Green bars getting taller = acceleration.",
+    badRange:
+      "Negative and falling = downward momentum. Red bars getting taller = selling pressure.",
+    importance: "High",
   },
   "Stoch %K": {
-    explanation: "Stochastic Oscillator - shows where the current price is relative to its recent range. Like asking 'are we near the top or bottom of recent prices?'",
-    goodRange: "Below 20 = price near recent lows (potential bounce). Rising from bottom = bullish.",
+    explanation:
+      "Stochastic Oscillator - shows where the current price is relative to its recent range. Like asking 'are we near the top or bottom of recent prices?'",
+    goodRange:
+      "Below 20 = price near recent lows (potential bounce). Rising from bottom = bullish.",
     badRange: "Above 80 = price near recent highs (might pull back).",
-    importance: "Medium"
+    importance: "Medium",
   },
-  "ADX": {
-    explanation: "Average Directional Index - measures how strong the current trend is (not the direction, just the strength).",
-    goodRange: "Above 25 = strong trend (good for following the momentum). Above 40 = very strong.",
-    badRange: "Below 20 = weak or no trend (choppy, sideways market - harder to trade).",
-    importance: "High"
+  ADX: {
+    explanation:
+      "Average Directional Index - measures how strong the current trend is (not the direction, just the strength).",
+    goodRange:
+      "Above 25 = strong trend (good for following the momentum). Above 40 = very strong.",
+    badRange:
+      "Below 20 = weak or no trend (choppy, sideways market - harder to trade).",
+    importance: "High",
   },
   "ATR %": {
-    explanation: "Average True Range as a percentage - measures how much the price typically moves. Higher = more volatile.",
+    explanation:
+      "Average True Range as a percentage - measures how much the price typically moves. Higher = more volatile.",
     goodRange: "1-3% = moderate, manageable volatility.",
-    badRange: "Above 5% = high volatility, risky. Bigger price swings mean bigger potential losses.",
-    importance: "Medium"
+    badRange:
+      "Above 5% = high volatility, risky. Bigger price swings mean bigger potential losses.",
+    importance: "Medium",
   },
   "OBV Trend": {
-    explanation: "On-Balance Volume - tracks whether volume is flowing in (buying) or out (selling) over time.",
-    goodRange: "Rising = money flowing in, accumulation happening. Confirms price rises.",
-    badRange: "Falling = money flowing out, distribution happening. Warning sign even if price is stable.",
-    importance: "Medium"
-  }
-}
+    explanation:
+      "On-Balance Volume - tracks whether volume is flowing in (buying) or out (selling) over time.",
+    goodRange:
+      "Rising = money flowing in, accumulation happening. Confirms price rises.",
+    badRange:
+      "Falling = money flowing out, distribution happening. Warning sign even if price is stable.",
+    importance: "Medium",
+  },
+};
 
-function IndicatorPill({ 
-  label, 
-  value, 
-  status 
-}: { 
-  label: string
-  value: string | number
-  status: "bullish" | "bearish" | "neutral" 
+function IndicatorPill({
+  label,
+  value,
+  status,
+}: {
+  label: string;
+  value: string | number;
+  status: "bullish" | "bearish" | "neutral";
 }) {
   const statusColors = {
     bullish: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
     bearish: "text-rose-400 bg-rose-500/10 border-rose-500/30",
     neutral: "text-zinc-400 bg-zinc-500/10 border-zinc-500/30",
-  }
-  
+  };
+
   const statusLabels = {
     bullish: "Good",
     bearish: "Caution",
-    neutral: "Neutral"
-  }
-  
-  const info = indicatorInfo[label]
-  
+    neutral: "Neutral",
+  };
+
+  const info = indicatorInfo[label];
+
   return (
     <div className={`px-3 py-2 rounded-lg border ${statusColors[status]}`}>
       <div className="text-xs text-zinc-500 mb-0.5 flex items-center">
@@ -377,7 +428,7 @@ function IndicatorPill({
       <div className="text-sm font-medium">{value}</div>
       <div className="text-xs mt-1 opacity-70">{statusLabels[status]}</div>
     </div>
-  )
+  );
 }
 
 /* ========== TRADE PLAN INFO ========== */
@@ -385,102 +436,137 @@ function IndicatorPill({
 const tradePlanInfo = {
   entryZone: {
     title: "Entry Zone",
-    explanation: "The recommended price range to buy at. We calculate this based on nearby support levels and technical patterns.",
-    interpretation: "Wait for the price to drop into this zone before buying. Buying here gives you a better risk-to-reward ratio.",
-    importance: "High" as const
+    explanation:
+      "The recommended price range to buy at. We calculate this based on nearby support levels and technical patterns.",
+    interpretation:
+      "Wait for the price to drop into this zone before buying. Buying here gives you a better risk-to-reward ratio.",
+    importance: "High" as const,
   },
   stopLoss: {
     title: "Stop Loss",
-    explanation: "The price where you should sell to limit your losses if the trade goes wrong. It's like a safety net.",
-    interpretation: "Set an automatic sell order at this price. Never risk more than you can afford to lose.",
-    importance: "High" as const
+    explanation:
+      "The price where you should sell to limit your losses if the trade goes wrong. It's like a safety net.",
+    interpretation:
+      "Set an automatic sell order at this price. Never risk more than you can afford to lose.",
+    importance: "High" as const,
   },
   target1: {
     title: "Target 1 (Conservative)",
-    explanation: "The first profit-taking level. This is a safer, more likely target to hit.",
-    interpretation: "Consider selling 30-50% of your position here to lock in some profits.",
-    importance: "High" as const
+    explanation:
+      "The first profit-taking level. This is a safer, more likely target to hit.",
+    interpretation:
+      "Consider selling 30-50% of your position here to lock in some profits.",
+    importance: "High" as const,
   },
   target2: {
     title: "Target 2 (Moderate)",
-    explanation: "The second profit target, based on key resistance levels or Fibonacci extensions.",
-    interpretation: "If price reaches T1 and keeps going, this is the next logical exit point.",
-    importance: "Medium" as const
+    explanation:
+      "The second profit target, based on key resistance levels or Fibonacci extensions.",
+    interpretation:
+      "If price reaches T1 and keeps going, this is the next logical exit point.",
+    importance: "Medium" as const,
   },
   target3: {
     title: "Target 3 (Ambitious)",
-    explanation: "The stretch goal - only reached in strong moves. Based on extended Fibonacci levels.",
-    interpretation: "Keep a small portion of your position for this. Don't be greedy if the market turns.",
-    importance: "Low" as const
+    explanation:
+      "The stretch goal - only reached in strong moves. Based on extended Fibonacci levels.",
+    interpretation:
+      "Keep a small portion of your position for this. Don't be greedy if the market turns.",
+    importance: "Low" as const,
   },
   support: {
     title: "Support Level",
-    explanation: "A price 'floor' where buyers tend to step in. The price has bounced off this level before.",
-    interpretation: "Good to buy near support. If price breaks below support, it's a warning sign.",
-    importance: "High" as const
+    explanation:
+      "A price 'floor' where buyers tend to step in. The price has bounced off this level before.",
+    interpretation:
+      "Good to buy near support. If price breaks below support, it's a warning sign.",
+    importance: "High" as const,
   },
   resistance: {
-    title: "Resistance Level", 
-    explanation: "A price 'ceiling' where sellers tend to appear. The price has struggled to go above this before.",
-    interpretation: "Price might stall or reverse here. Breaking above resistance is bullish.",
-    importance: "High" as const
-  }
-}
+    title: "Resistance Level",
+    explanation:
+      "A price 'ceiling' where sellers tend to appear. The price has struggled to go above this before.",
+    interpretation:
+      "Price might stall or reverse here. Breaking above resistance is bullish.",
+    importance: "High" as const,
+  },
+};
 
 const riskInfo = {
   riskLevel: {
     title: "Risk Level",
-    explanation: "Overall assessment of how risky this trade is, based on volatility and market conditions.",
-    interpretation: "Low = safer, smaller price swings. High/Very High = volatile, could move sharply in either direction.",
-    importance: "High" as const
+    explanation:
+      "Overall assessment of how risky this trade is, based on volatility and market conditions.",
+    interpretation:
+      "Low = safer, smaller price swings. High/Very High = volatile, could move sharply in either direction.",
+    importance: "High" as const,
   },
   confidence: {
     title: "Confidence",
-    explanation: "How many of our signals agree with each other. More agreement = higher confidence.",
-    interpretation: "High = most indicators point the same direction. Low = mixed signals, be more cautious.",
-    importance: "High" as const
+    explanation:
+      "How many of our signals agree with each other. More agreement = higher confidence.",
+    interpretation:
+      "High = most indicators point the same direction. Low = mixed signals, be more cautious.",
+    importance: "High" as const,
   },
   adx: {
     title: "ADX (Trend Strength)",
-    explanation: "Average Directional Index - measures how strong the current trend is, not the direction.",
-    interpretation: "Above 25 = strong trend (easier to trade). Below 20 = weak/choppy market (harder to predict).",
-    importance: "Medium" as const
+    explanation:
+      "Average Directional Index - measures how strong the current trend is, not the direction.",
+    interpretation:
+      "Above 25 = strong trend (easier to trade). Below 20 = weak/choppy market (harder to predict).",
+    importance: "Medium" as const,
   },
   compositeScore: {
     title: "Composite Score",
-    explanation: "Our overall rating from -100 to +100. Combines trend, momentum, structure, volume, and volatility.",
-    interpretation: "Above +50 = Strong Buy. +20 to +50 = Buy. Below +20 = Wait (conditions not favorable for buying).",
-    importance: "High" as const
-  }
-}
+    explanation:
+      "Our overall rating from -100 to +100. Combines trend, momentum, structure, volume, and volatility.",
+    interpretation:
+      "Above +50 = Strong Buy. +20 to +50 = Buy. Below +20 = Wait (conditions not favorable for buying).",
+    importance: "High" as const,
+  },
+};
 
 /* ========== VERDICT INFO ========== */
 
-function VerdictExplanation({ verdict, score, trend }: { verdict: Verdict; score: number; trend: string }) {
+function VerdictExplanation({
+  verdict,
+  score,
+  trend,
+}: {
+  verdict: Verdict;
+  score: number;
+  trend: string;
+}) {
   // Generate professional-style explanation
   const getExplanation = (): string => {
     switch (verdict) {
       case "Strong Buy":
-        return "Professional setup: Trend, momentum, and structure all align. High conviction trade with favorable risk-reward."
+        return "Professional setup: Trend, momentum, and structure all align. High conviction trade with favorable risk-reward.";
       case "Buy":
-        return "Trend is in your favor with acceptable risk. Consider entering a position with appropriate size."
+        return "Trend is in your favor with acceptable risk. Consider entering a position with appropriate size.";
       case "Accumulate":
-        return "Trend is bullish but current price may be extended. Set limit orders at pullback levels or wait for better entry."
+        return "Trend is bullish but current price may be extended. Set limit orders at pullback levels or wait for better entry.";
       case "Neutral":
-        return "No clear edge in either direction. Professional traders sit on their hands when uncertain."
+        return "No clear edge in either direction. Professional traders sit on their hands when uncertain.";
       case "Avoid":
-        return "Bearish conditions or excessive risk detected. Protect capital - there will be better opportunities."
+        return "Bearish conditions or excessive risk detected. Protect capital - there will be better opportunities.";
       default:
-        return "Review the analysis details below."
+        return "Review the analysis details below.";
     }
-  }
-  
-  const scoreDescription = score >= 50 ? "Very bullish" 
-    : score >= 20 ? "Moderately bullish" 
-    : score >= -20 ? "Neutral/uncertain" 
-    : score >= -50 ? "Moderately bearish" 
-    : "Very bearish"
-  
+  };
+
+  const scoreDescription =
+    score >= 50
+      ? "Very bullish"
+      : score >= 20
+      ? "Moderately bullish"
+      : score >= -20
+      ? "Neutral/uncertain"
+      : score >= -50
+      ? "Moderately bearish"
+      : "Very bearish";
+
   return (
     <div className="mt-4 p-3 rounded-lg bg-zinc-800/30 text-xs text-zinc-400">
       <div className="flex items-center gap-1 mb-1">
@@ -494,88 +580,134 @@ function VerdictExplanation({ verdict, score, trend }: { verdict: Verdict; score
       </div>
       <p>{getExplanation()}</p>
     </div>
-  )
+  );
 }
 
 export default function HomePage() {
-  const searchParams = useSearchParams()
-  
-  const [pair, setPair] = useState("")
-  const [isValidPair, setIsValidPair] = useState(true)
-  const [isLoading, setIsLoading] = useState(false)
+  const searchParams = useSearchParams();
 
-  const [result, setResult] = useState<AnalysisResult | null>(null)
-  const [error, setError] = useState<string | null>(null)
+  const [pair, setPair] = useState("");
+  const [isValidPair, setIsValidPair] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const [currentPrice, setCurrentPrice] = useState<number | null>(null)
-  const [priceError, setPriceError] = useState<string | null>(null)
-  
-  // Read pair from URL query parameter (from scanner)
-  useEffect(() => {
-    const pairParam = searchParams.get("pair")
-    if (pairParam && validatePair(pairParam)) {
-      setPair(pairParam)
-      setIsValidPair(true)
-    }
-  }, [searchParams])
+  const [result, setResult] = useState<AnalysisResult | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value
-    setPair(value)
-    setIsValidPair(validatePair(value))
-    setError(null)
-    setPriceError(null)
-    setCurrentPrice(null)
-    if (result) setResult(null)
-  }
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [priceError, setPriceError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!pair.trim() || !isValidPair) return
+  // Function to run analysis for a given pair
+  const runAnalysis = async (pairToAnalyze: string) => {
+    if (!pairToAnalyze.trim() || !validatePair(pairToAnalyze)) return;
 
-    setIsLoading(true)
-    setResult(null)
-    setError(null)
-    setPriceError(null)
-    setCurrentPrice(null)
+    setIsLoading(true);
+    setResult(null);
+    setError(null);
+    setPriceError(null);
+    setCurrentPrice(null);
 
     try {
-      const cleanPair = normalisePair(pair)
+      const cleanPair = normalisePair(pairToAnalyze);
 
       const [analysis, price] = await Promise.allSettled([
         fetchAnalysis(cleanPair),
         fetchCurrentPrice(cleanPair),
-      ])
+      ]);
 
       if (analysis.status === "rejected") {
-        throw analysis.reason
+        throw analysis.reason;
       }
-      setResult(analysis.value)
+      setResult(analysis.value);
 
       if (price.status === "fulfilled") {
-        setCurrentPrice(price.value)
+        setCurrentPrice(price.value);
       } else {
-        const msg = price.reason instanceof Error ? price.reason.message : "Price fetch failed"
-        setPriceError(msg)
+        const msg =
+          price.reason instanceof Error
+            ? price.reason.message
+            : "Price fetch failed";
+        setPriceError(msg);
       }
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Analysis failed"
-      setError(message)
+      const msg = err instanceof Error ? err.message : "Analysis failed";
+      setError(msg);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
+
+  // Read pair from URL query parameter (from scanner) and auto-analyze
+  useEffect(() => {
+    const pairParam = searchParams.get("pair");
+    if (pairParam && validatePair(pairParam)) {
+      setPair(pairParam);
+      setIsValidPair(true);
+      // Auto-trigger analysis when coming from scanner
+      runAnalysis(pairParam);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPair(value);
+    setIsValidPair(validatePair(value));
+    setError(null);
+    setPriceError(null);
+    setCurrentPrice(null);
+    if (result) setResult(null);
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!pair.trim() || !isValidPair) return;
+
+    setIsLoading(true);
+    setResult(null);
+    setError(null);
+    setPriceError(null);
+    setCurrentPrice(null);
+
+    try {
+      const cleanPair = normalisePair(pair);
+
+      const [analysis, price] = await Promise.allSettled([
+        fetchAnalysis(cleanPair),
+        fetchCurrentPrice(cleanPair),
+      ]);
+
+      if (analysis.status === "rejected") {
+        throw analysis.reason;
+      }
+      setResult(analysis.value);
+
+      if (price.status === "fulfilled") {
+        setCurrentPrice(price.value);
+      } else {
+        const msg =
+          price.reason instanceof Error
+            ? price.reason.message
+            : "Price fetch failed";
+        setPriceError(msg);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Analysis failed";
+      setError(message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleClear = () => {
-    setPair("")
-    setIsValidPair(true)
-    setResult(null)
-    setError(null)
-    setCurrentPrice(null)
-    setPriceError(null)
-  }
+    setPair("");
+    setIsValidPair(true);
+    setResult(null);
+    setError(null);
+    setCurrentPrice(null);
+    setPriceError(null);
+  };
 
-  const canSubmit = pair.trim() !== "" && isValidPair
+  const canSubmit = pair.trim() !== "" && isValidPair;
 
   const getVerdictStyle = (verdict: Verdict) => {
     switch (verdict) {
@@ -585,96 +717,104 @@ export default function HomePage() {
           border: "border-emerald-500/50",
           accent: "from-emerald-400 to-teal-400",
           bg: "bg-emerald-500/10",
-        }
+        };
       case "Buy":
         return {
           text: "text-emerald-400",
           border: "border-emerald-500/40",
           accent: "from-emerald-500 to-teal-500",
           bg: "bg-emerald-500/5",
-        }
+        };
       case "Accumulate":
         return {
           text: "text-cyan-400",
           border: "border-cyan-500/40",
           accent: "from-cyan-500 to-blue-500",
           bg: "bg-cyan-500/5",
-        }
+        };
       case "Neutral":
         return {
           text: "text-zinc-400",
           border: "border-zinc-500/40",
           accent: "from-zinc-500 to-slate-500",
           bg: "bg-zinc-500/5",
-        }
+        };
       case "Avoid":
         return {
           text: "text-rose-400",
           border: "border-rose-500/40",
           accent: "from-rose-500 to-red-500",
           bg: "bg-rose-500/5",
-        }
+        };
     }
-  }
+  };
 
   const getRiskStyle = (level: RiskLevel) => {
     switch (level) {
       case "Low":
-        return "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
+        return "text-emerald-400 bg-emerald-500/10 border-emerald-500/30";
       case "Medium":
-        return "text-amber-400 bg-amber-500/10 border-amber-500/30"
+        return "text-amber-400 bg-amber-500/10 border-amber-500/30";
       case "High":
-        return "text-orange-400 bg-orange-500/10 border-orange-500/30"
+        return "text-orange-400 bg-orange-500/10 border-orange-500/30";
       case "Very High":
-        return "text-rose-400 bg-rose-500/10 border-rose-500/30"
+        return "text-rose-400 bg-rose-500/10 border-rose-500/30";
     }
-  }
+  };
 
   const getConfidenceStyle = (confidence: Confidence) => {
-    if (confidence === "High") return "text-emerald-400 bg-emerald-500/10 border-emerald-500/30"
-    if (confidence === "Medium") return "text-amber-400 bg-amber-500/10 border-amber-500/30"
-    return "text-rose-400 bg-rose-500/10 border-rose-500/30"
-  }
+    if (confidence === "High")
+      return "text-emerald-400 bg-emerald-500/10 border-emerald-500/30";
+    if (confidence === "Medium")
+      return "text-amber-400 bg-amber-500/10 border-amber-500/30";
+    return "text-rose-400 bg-rose-500/10 border-rose-500/30";
+  };
 
   const getTrendStyle = (trend: string) => {
-    if (trend.includes("Bull")) return "text-emerald-400"
-    if (trend.includes("Bear")) return "text-rose-400"
-    return "text-amber-400"
-  }
+    if (trend.includes("Bull")) return "text-emerald-400";
+    if (trend.includes("Bear")) return "text-rose-400";
+    return "text-amber-400";
+  };
 
-  const verdictStyle = result ? getVerdictStyle(result.verdict) : null
-  const entryMid = result?.levels?.entryMid ?? null
+  const verdictStyle = result ? getVerdictStyle(result.verdict) : null;
+  const entryMid = result?.levels?.entryMid ?? null;
 
   const profitPctFrom = (target: number): string => {
-    if (entryMid == null || entryMid === 0) return "N/A"
-    const pct = ((target - entryMid) / entryMid) * 100
-    if (!Number.isFinite(pct)) return "N/A"
-    const sign = pct >= 0 ? "+" : ""
-    return `${sign}${pct.toFixed(1)}%`
-  }
+    if (entryMid == null || entryMid === 0) return "N/A";
+    const pct = ((target - entryMid) / entryMid) * 100;
+    if (!Number.isFinite(pct)) return "N/A";
+    const sign = pct >= 0 ? "+" : "";
+    return `${sign}${pct.toFixed(1)}%`;
+  };
 
   const getRsiStatus = (rsi: number): "bullish" | "bearish" | "neutral" => {
-    if (rsi < 35) return "bullish"
-    if (rsi > 65) return "bearish"
-    return "neutral"
-  }
+    if (rsi < 35) return "bullish";
+    if (rsi > 65) return "bearish";
+    return "neutral";
+  };
 
-  const getMacdStatus = (histogram: number): "bullish" | "bearish" | "neutral" => {
-    if (histogram > 0) return "bullish"
-    if (histogram < 0) return "bearish"
-    return "neutral"
-  }
+  const getMacdStatus = (
+    histogram: number,
+  ): "bullish" | "bearish" | "neutral" => {
+    if (histogram > 0) return "bullish";
+    if (histogram < 0) return "bearish";
+    return "neutral";
+  };
 
   const getStochStatus = (k: number): "bullish" | "bearish" | "neutral" => {
-    if (k < 25) return "bullish"
-    if (k > 75) return "bearish"
-    return "neutral"
-  }
+    if (k < 25) return "bullish";
+    if (k > 75) return "bearish";
+    return "neutral";
+  };
 
-  const getAdxStatus = (adx: number, plusDI: number, minusDI: number): "bullish" | "bearish" | "neutral" => {
-    if (adx < 20) return "neutral"
-    return plusDI > minusDI ? "bullish" : "bearish"
-  }
+  const getAdxStatus = (
+    adx: number,
+    plusDI: number,
+    minusDI: number,
+  ): "bullish" | "bearish" | "neutral" => {
+    if (adx < 20) return "neutral";
+    return plusDI > minusDI ? "bullish" : "bearish";
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-slate-950 to-zinc-950 relative">
@@ -687,14 +827,22 @@ export default function HomePage() {
             Crypto Verdict
           </h1>
           <p className="text-zinc-400 text-lg font-normal max-w-2xl mx-auto leading-relaxed">
-            Smart analysis that combines multiple signals to help you make better trading decisions.
+            Smart analysis that combines multiple signals to help you make
+            better trading decisions.
           </p>
           <p className="text-zinc-500 text-sm mt-2">
-            Click the <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-zinc-700/50 text-zinc-400 text-xs mx-1">?</span> icons for explanations
+            Click the{" "}
+            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-zinc-700/50 text-zinc-400 text-xs mx-1">
+              ?
+            </span>{" "}
+            icons for explanations
           </p>
           <div className="mt-6">
             <Link href="/scan">
-              <Button variant="outline" className="border-indigo-500/50 text-indigo-400 hover:bg-indigo-500/10 hover:text-indigo-300">
+              <Button
+                variant="outline"
+                className="border-indigo-500/50 text-indigo-400 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 cursor-pointer transition-all duration-200"
+              >
                 Scan All Coins for Opportunities
               </Button>
             </Link>
@@ -735,7 +883,7 @@ export default function HomePage() {
                       variant="ghost"
                       size="sm"
                       onClick={handleClear}
-                      className="text-zinc-400 hover:text-white hover:bg-zinc-800/50 h-11 px-4"
+                      className="text-zinc-400 hover:text-white hover:bg-zinc-700 h-11 px-4 cursor-pointer transition-all duration-200"
                       disabled={isLoading}
                     >
                       Clear
@@ -757,7 +905,7 @@ export default function HomePage() {
               <Button
                 type="submit"
                 disabled={!canSubmit || isLoading}
-                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white h-11 font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                className="w-full bg-indigo-600 hover:bg-indigo-500 hover:shadow-lg hover:shadow-indigo-500/30 text-white h-11 font-medium disabled:opacity-40 disabled:cursor-not-allowed transition-all duration-200 cursor-pointer active:scale-[0.98]"
               >
                 {isLoading ? (
                   <span className="flex items-center gap-2">
@@ -823,26 +971,44 @@ export default function HomePage() {
                     {/* Entry Type & Position Size */}
                     {result.entryType !== "None" && (
                       <div className="mt-4 flex items-center justify-center gap-3">
-                        <Badge variant="outline" className="text-cyan-400 border-cyan-500/30 bg-cyan-500/10">
+                        <Badge
+                          variant="outline"
+                          className="text-cyan-400 border-cyan-500/30 bg-cyan-500/10"
+                        >
                           {result.entryType} Entry
                         </Badge>
-                        <Badge variant="outline" className={`${
-                          result.positionSize === "Full" ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10" :
-                          result.positionSize === "Half" ? "text-amber-400 border-amber-500/30 bg-amber-500/10" :
-                          "text-zinc-400 border-zinc-500/30 bg-zinc-500/10"
-                        }`}>
+                        <Badge
+                          variant="outline"
+                          className={`${
+                            result.positionSize === "Full"
+                              ? "text-emerald-400 border-emerald-500/30 bg-emerald-500/10"
+                              : result.positionSize === "Half"
+                              ? "text-amber-400 border-amber-500/30 bg-amber-500/10"
+                              : "text-zinc-400 border-zinc-500/30 bg-zinc-500/10"
+                          }`}
+                        >
                           {result.positionSize} Position
                         </Badge>
                       </div>
                     )}
-                    
+
                     <div className="mt-4 flex items-center justify-center gap-2">
                       <span className="text-xs text-zinc-500">Trend:</span>
-                      <span className={`text-sm font-medium ${getTrendStyle(result.meta.trend)}`}>
+                      <span
+                        className={`text-sm font-medium ${getTrendStyle(
+                          result.meta.trend,
+                        )}`}
+                      >
                         {result.meta.trend}
                       </span>
                       <span className="text-xs text-zinc-500 ml-2">ADX:</span>
-                      <span className={`text-sm font-medium ${result.meta.adx > 25 ? "text-emerald-400" : "text-zinc-400"}`}>
+                      <span
+                        className={`text-sm font-medium ${
+                          result.meta.adx > 25
+                            ? "text-emerald-400"
+                            : "text-zinc-400"
+                        }`}
+                      >
                         {result.meta.adx.toFixed(0)}
                       </span>
                     </div>
@@ -860,7 +1026,11 @@ export default function HomePage() {
                         importance={riskInfo.compositeScore.importance}
                       />
                     </p>
-                    <VerdictExplanation verdict={result.verdict} score={result.meta.signals.composite} trend={result.meta.trend} />
+                    <VerdictExplanation
+                      verdict={result.verdict}
+                      score={result.meta.signals.composite}
+                      trend={result.meta.trend}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -880,11 +1050,26 @@ export default function HomePage() {
                 </CardHeader>
                 <CardContent className="pt-6">
                   <div className="grid grid-cols-2 gap-x-8 gap-y-4">
-                    <SignalBar label="Trend" value={result.meta.signals.trend} />
-                    <SignalBar label="Momentum" value={result.meta.signals.momentum} />
-                    <SignalBar label="Structure" value={result.meta.signals.structure} />
-                    <SignalBar label="Volume" value={result.meta.signals.volume} />
-                    <SignalBar label="Volatility" value={result.meta.signals.volatility} />
+                    <SignalBar
+                      label="Trend"
+                      value={result.meta.signals.trend}
+                    />
+                    <SignalBar
+                      label="Momentum"
+                      value={result.meta.signals.momentum}
+                    />
+                    <SignalBar
+                      label="Structure"
+                      value={result.meta.signals.structure}
+                    />
+                    <SignalBar
+                      label="Volume"
+                      value={result.meta.signals.volume}
+                    />
+                    <SignalBar
+                      label="Volatility"
+                      value={result.meta.signals.volatility}
+                    />
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-zinc-400 flex items-center">
                         Money Flow
@@ -905,8 +1090,8 @@ export default function HomePage() {
                             : "text-zinc-400 border-zinc-500/30"
                         }
                       >
-                        {result.meta.indicators.obvTrend === "Rising" 
-                          ? "Buying" 
+                        {result.meta.indicators.obvTrend === "Rising"
+                          ? "Buying"
                           : result.meta.indicators.obvTrend === "Falling"
                           ? "Selling"
                           : "Neutral"}
@@ -944,7 +1129,13 @@ export default function HomePage() {
                   />
                   <IndicatorPill
                     label="MACD"
-                    value={result.meta.indicators.macdHistogram > 0 ? "Bullish" : result.meta.indicators.macdHistogram < 0 ? "Bearish" : "Neutral"}
+                    value={
+                      result.meta.indicators.macdHistogram > 0
+                        ? "Bullish"
+                        : result.meta.indicators.macdHistogram < 0
+                        ? "Bearish"
+                        : "Neutral"
+                    }
                     status={getMacdStatus(result.meta.indicators.macdHistogram)}
                   />
                   <IndicatorPill
@@ -958,13 +1149,17 @@ export default function HomePage() {
                     status={getAdxStatus(
                       result.meta.indicators.adx,
                       result.meta.indicators.plusDI,
-                      result.meta.indicators.minusDI
+                      result.meta.indicators.minusDI,
                     )}
                   />
                   <IndicatorPill
                     label="ATR %"
                     value={`${result.meta.indicators.atrPercent.toFixed(2)}%`}
-                    status={result.meta.indicators.atrPercent < 3 ? "neutral" : "bearish"}
+                    status={
+                      result.meta.indicators.atrPercent < 3
+                        ? "neutral"
+                        : "bearish"
+                    }
                   />
                 </div>
                 <div className="mt-4 grid grid-cols-3 gap-3 text-center">
@@ -1065,7 +1260,9 @@ export default function HomePage() {
                         <InfoTooltip
                           title={tradePlanInfo.resistance.title}
                           explanation={tradePlanInfo.resistance.explanation}
-                          interpretation={tradePlanInfo.resistance.interpretation}
+                          interpretation={
+                            tradePlanInfo.resistance.interpretation
+                          }
                           importance={tradePlanInfo.resistance.importance}
                         />
                       </p>
@@ -1086,7 +1283,9 @@ export default function HomePage() {
                         <InfoTooltip
                           title={tradePlanInfo.entryZone.title}
                           explanation={tradePlanInfo.entryZone.explanation}
-                          interpretation={tradePlanInfo.entryZone.interpretation}
+                          interpretation={
+                            tradePlanInfo.entryZone.interpretation
+                          }
                           importance={tradePlanInfo.entryZone.importance}
                         />
                       </p>
@@ -1114,7 +1313,12 @@ export default function HomePage() {
                       </p>
                       {entryMid != null && result.levels.stop && (
                         <p className="text-xs text-zinc-500 mt-1">
-                          Risk: {(((entryMid - result.levels.stop) / entryMid) * 100).toFixed(1)}%
+                          Risk:{" "}
+                          {(
+                            ((entryMid - result.levels.stop) / entryMid) *
+                            100
+                          ).toFixed(1)}
+                          %
                         </p>
                       )}
                     </div>
@@ -1124,9 +1328,24 @@ export default function HomePage() {
 
                   <div className="grid grid-cols-3 gap-5">
                     {[
-                      { label: "Target 1", key: "target1" as const, price: result.levels.t1, text: result.tradePlan.target1 },
-                      { label: "Target 2", key: "target2" as const, price: result.levels.t2, text: result.tradePlan.target2 },
-                      { label: "Target 3", key: "target3" as const, price: result.levels.t3, text: result.tradePlan.target3 },
+                      {
+                        label: "Target 1",
+                        key: "target1" as const,
+                        price: result.levels.t1,
+                        text: result.tradePlan.target1,
+                      },
+                      {
+                        label: "Target 2",
+                        key: "target2" as const,
+                        price: result.levels.t2,
+                        text: result.tradePlan.target2,
+                      },
+                      {
+                        label: "Target 3",
+                        key: "target3" as const,
+                        price: result.levels.t3,
+                        text: result.tradePlan.target3,
+                      },
                     ].map((t) => (
                       <div key={t.label}>
                         <p className="text-xs text-zinc-500 mb-2 uppercase tracking-wider font-medium flex items-center">
@@ -1138,7 +1357,9 @@ export default function HomePage() {
                             importance={tradePlanInfo[t.key].importance}
                           />
                         </p>
-                        <p className="text-lg sm:text-xl font-semibold text-emerald-400">{t.text}</p>
+                        <p className="text-lg sm:text-xl font-semibold text-emerald-400">
+                          {t.text}
+                        </p>
                         <p className="text-xs text-zinc-500 mt-1">
                           Profit: {profitPctFrom(t.price)}
                         </p>
@@ -1177,7 +1398,9 @@ export default function HomePage() {
                       </p>
                       <Badge
                         variant="outline"
-                        className={`${getRiskStyle(result.riskSummary.riskLevel)} border font-medium text-xs px-3 py-1.5`}
+                        className={`${getRiskStyle(
+                          result.riskSummary.riskLevel,
+                        )} border font-medium text-xs px-3 py-1.5`}
                       >
                         {result.riskSummary.riskLevel}
                       </Badge>
@@ -1194,7 +1417,9 @@ export default function HomePage() {
                       </p>
                       <Badge
                         variant="outline"
-                        className={`${getConfidenceStyle(result.riskSummary.confidence)} border font-medium text-xs px-3 py-1.5`}
+                        className={`${getConfidenceStyle(
+                          result.riskSummary.confidence,
+                        )} border font-medium text-xs px-3 py-1.5`}
                       >
                         {result.riskSummary.confidence}
                       </Badge>
@@ -1217,13 +1442,14 @@ export default function HomePage() {
                             : "text-amber-400 border-amber-500/30"
                         } border font-medium text-xs px-3 py-1.5`}
                       >
-                        {result.meta.adx > 25 ? "Strong" : "Weak"} ({result.meta.adx.toFixed(0)})
+                        {result.meta.adx > 25 ? "Strong" : "Weak"} (
+                        {result.meta.adx.toFixed(0)})
                       </Badge>
                     </div>
                   </div>
-                  
+
                   <Separator className="bg-zinc-800/50" />
-                  
+
                   <div>
                     <p className="text-xs text-zinc-500 mb-4 uppercase tracking-wider font-medium">
                       Analysis Summary
@@ -1234,7 +1460,9 @@ export default function HomePage() {
                           key={index}
                           className="text-zinc-300 flex items-start gap-3 text-sm leading-relaxed"
                         >
-                          <span className="text-indigo-400 mt-0.5 font-semibold">•</span>
+                          <span className="text-indigo-400 mt-0.5 font-semibold">
+                            •
+                          </span>
                           <span className="font-normal">{reason}</span>
                         </li>
                       ))}
@@ -1246,12 +1474,14 @@ export default function HomePage() {
 
             <div className="text-center pt-4">
               <p className="text-xs text-zinc-500 font-normal">
-                Educational purposes only. Not financial advice. Past performance does not guarantee future results. Always do your own research.
+                Educational purposes only. Not financial advice. Past
+                performance does not guarantee future results. Always do your
+                own research.
               </p>
             </div>
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }

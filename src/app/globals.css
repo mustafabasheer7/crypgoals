@@ -112,3 +112,36 @@ button,
     min-height: 44px;
   }
 }
+
+/* Ensure all buttons and clickable elements have pointer cursor */
+button,
+[role="button"],
+.cursor-pointer,
+a,
+select,
+input[type="submit"],
+input[type="button"],
+input[type="checkbox"],
+input[type="radio"] {
+  cursor: pointer;
+}
+
+/* Disabled elements */
+button:disabled,
+[disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Global hover transitions */
+button,
+a,
+[role="button"] {
+  transition: all 0.2s ease;
+}
+
+/* Interactive elements hover glow */
+button:hover:not(:disabled),
+a:hover {
+  filter: brightness(1.1);
+}
