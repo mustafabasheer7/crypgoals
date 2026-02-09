@@ -645,7 +645,7 @@ export default function HomePage() {
       // Auto-trigger analysis when coming from scanner
       runAnalysis(pairParam);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -661,41 +661,7 @@ export default function HomePage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!pair.trim() || !isValidPair) return;
-
-    setIsLoading(true);
-    setResult(null);
-    setError(null);
-    setPriceError(null);
-    setCurrentPrice(null);
-
-    try {
-      const cleanPair = normalisePair(pair);
-
-      const [analysis, price] = await Promise.allSettled([
-        fetchAnalysis(cleanPair),
-        fetchCurrentPrice(cleanPair),
-      ]);
-
-      if (analysis.status === "rejected") {
-        throw analysis.reason;
-      }
-      setResult(analysis.value);
-
-      if (price.status === "fulfilled") {
-        setCurrentPrice(price.value);
-      } else {
-        const msg =
-          price.reason instanceof Error
-            ? price.reason.message
-            : "Price fetch failed";
-        setPriceError(msg);
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Analysis failed";
-      setError(message);
-    } finally {
-      setIsLoading(false);
-    }
+    await runAnalysis(pair);
   };
 
   const handleClear = () => {
