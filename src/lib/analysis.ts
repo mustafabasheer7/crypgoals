@@ -154,6 +154,30 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value))
 }
 
+function isFinitePositive(value: number): boolean {
+  return Number.isFinite(value) && value > 0
+}
+
+function isValidCandle(c: Candle): boolean {
+  if (
+    ![
+      c.open,
+      c.high,
+      c.low,
+      c.close,
+      c.vwap,
+      c.volume,
+      c.time,
+      c.count,
+    ].every(Number.isFinite)
+  ) {
+    return false
+  }
+  if (c.open <= 0 || c.high <= 0 || c.low <= 0 || c.close <= 0) return false
+  if (c.high < c.low) return false
+  return true
+}
+
 /* ========== TECHNICAL INDICATORS ========== */
 
 /**
@@ -647,12 +671,24 @@ function calculateTrendScore(
       score -= 20
     }
     factors++
+  } else if (ema20 != null && ema50 != null) {
+    // Fallback for newer listings where EMA200 is unavailable.
+    if (lastPrice > ema20 && ema20 > ema50) {
+      score += 70
+    } else if (lastPrice < ema20 && ema20 < ema50) {
+      score -= 70
+    } else if (lastPrice > ema50) {
+      score += 25
+    } else {
+      score -= 25
+    }
+    factors += 0.8
   }
   
   // ADX trend strength
   if (adxVal) {
     const trendStrength = adxVal.adx
-    const direction = adxVal.plusDI > adxVal.minusDI ? 1 : -1
+    const direction = adxVal.plusDI === adxVal.minusDI ? 0 : adxVal.plusDI > adxVal.minusDI ? 1 : -1
     
     if (trendStrength > 25) {
       // Strong trend
@@ -866,6 +902,62 @@ function calculateVolumeScore(obvTrendVal: "Rising" | "Falling" | "Flat"): numbe
   }
 }
 
+function enforceTargetConstraints(
+  entryMid: number,
+  risk: number,
+  t1: number,
+  t2: number,
+  t3: number,
+  maxT2Price: number,
+  maxT3Price: number
+): { t1: number; t2: number; t3: number } {
+  const spanToT2 = Math.max(maxT2Price - entryMid, entryMid * 0.005)
+  const minGap = Math.max(risk * 0.15, spanToT2 * 0.08, entryMid * 0.001)
+  const maxT1Price = entryMid + spanToT2 * 0.82
+
+  t1 = Math.min(t1, maxT1Price)
+  t2 = Math.min(t2, maxT2Price)
+  t3 = Math.min(t3, maxT3Price)
+
+  if (t1 <= entryMid) t1 = entryMid + minGap
+
+  if (t2 <= t1 + minGap) {
+    const desired = t1 + minGap
+    if (desired <= maxT2Price) {
+      t2 = desired
+    } else {
+      t2 = maxT2Price
+      t1 = entryMid + (t2 - entryMid) * 0.75
+    }
+  }
+
+  if (t3 <= t2 + minGap) {
+    const desired = t2 + minGap
+    if (desired <= maxT3Price) {
+      t3 = desired
+    } else {
+      t3 = maxT3Price
+      t2 = entryMid + (t3 - entryMid) * 0.75
+      if (t2 <= t1 + minGap) {
+        t1 = entryMid + (t2 - entryMid) * 0.75
+      }
+    }
+  }
+
+  // Last-resort rebuild when caps are tight.
+  if (!(t1 > entryMid && t2 > t1 && t3 > t2)) {
+    const safeSpan = Math.max(maxT3Price - entryMid, minGap * 4)
+    const step = safeSpan / 4
+    t1 = entryMid + step
+    t2 = Math.min(entryMid + step * 2, maxT2Price)
+    t3 = Math.min(entryMid + step * 3, maxT3Price)
+    if (t2 <= t1) t1 = entryMid + (t2 - entryMid) * 0.7
+    if (t3 <= t2) t2 = entryMid + (t3 - entryMid) * 0.7
+  }
+
+  return { t1, t2, t3 }
+}
+
 /* ========== MAIN ANALYSIS ========== */
 
 export function analyseCandles(pair: string, candles: Candle[]): AnalysisResult {
@@ -875,12 +967,20 @@ export function analyseCandles(pair: string, candles: Candle[]): AnalysisResult 
   if (candles.length < MIN_CANDLES) {
     throw new Error(`Not enough candle data for analysis. Need at least ${MIN_CANDLES} candles, got ${candles.length}. This coin may be too new.`)
   }
+
+  if (!candles.every(isValidCandle)) {
+    throw new Error("Invalid candle data. Candle values must be finite, positive, and well-formed (high >= low).")
+  }
   
   const cleanPair = pair.trim().toUpperCase().replace(/-/g, "/")
   const quote = cleanPair.split("/")[1] ?? "USD"
   
   const closes = candles.map(c => c.close)
   const lastPrice = closes[closes.length - 1]
+
+  if (!isFinitePositive(lastPrice)) {
+    throw new Error("Invalid market data. Last close price must be a finite positive number.")
+  }
   
   /* ===== Calculate all indicators ===== */
   
@@ -889,8 +989,9 @@ export function analyseCandles(pair: string, candles: Candle[]): AnalysisResult 
   const ema200 = ema(closes, 200)
   const rsi14Val = rsi(closes, 14) ?? 50
   const rsi7Val = rsi(closes, 7) ?? 50
-  const atr14 = atr(candles, 14) ?? lastPrice * 0.02
-  const atrPercent = (atr14 / lastPrice) * 100
+  const atr14Raw = atr(candles, 14)
+  const atr14 = atr14Raw != null && isFinitePositive(atr14Raw) ? atr14Raw : lastPrice * 0.02
+  const atrPercent = isFinitePositive(lastPrice) ? (atr14 / lastPrice) * 100 : 2
   
   const macdData = macd(closes)
   const stochData = stochastic(candles)
@@ -1035,18 +1136,14 @@ export function analyseCandles(pair: string, candles: Candle[]): AnalysisResult 
   // T3: Fibonacci 1.618 extension or 4R
   let t3 = Math.max(fib.ext1618, entryMid + risk * 4)
   
-  // Ensure proper ordering with minimum gaps
+  // Ensure proper ordering with minimum gaps, then apply hard caps safely.
   t1 = Math.max(t1, entryMid + risk * 1.2)
   t2 = Math.max(t2, t1 + risk * 0.8)
   t3 = Math.max(t3, t2 + risk * 0.8)
-  
-  // FINAL cap after all adjustments to prevent extreme targets
-  t2 = Math.min(t2, maxT2Price)
-  t3 = Math.min(t3, maxT3Price)
-  
-  // Re-ensure ordering after final cap
-  if (t3 <= t2) t3 = t2 * 1.05
-  if (t2 <= t1) t2 = t1 * 1.05
+  const constrainedTargets = enforceTargetConstraints(entryMid, risk, t1, t2, t3, maxT2Price, maxT3Price)
+  t1 = constrainedTargets.t1
+  t2 = constrainedTargets.t2
+  t3 = constrainedTargets.t3
   
   const rrToT1 = risk > 0 ? (t1 - entryMid) / risk : 0
   const rrToT2 = risk > 0 ? (t2 - entryMid) / risk : 0
@@ -1058,8 +1155,8 @@ export function analyseCandles(pair: string, candles: Candle[]): AnalysisResult 
   const isBullishTrend = trend === "Strong Bull" || trend === "Bull"
   const isStrongTrend = (adxData?.adx ?? 0) >= 25
   const isVeryStrongTrend = (adxData?.adx ?? 0) >= 40
-  const isBullishADX = adxData && adxData.plusDI > adxData.minusDI
-  const isBearishADX = adxData && adxData.minusDI > adxData.plusDI
+  const isBullishADX = (adxData?.plusDI ?? 0) > (adxData?.minusDI ?? 0)
+  const isBearishADX = (adxData?.minusDI ?? 0) > (adxData?.plusDI ?? 0)
   
   // Professional traders primarily follow the trend
   // Key question: Is the trend in our favor?
@@ -1164,9 +1261,10 @@ export function analyseCandles(pair: string, candles: Candle[]): AnalysisResult 
   
   // === OVERBOUGHT WARNING ===
   // Professional sees: Overbought in uptrend = reduce size, wait for pullback
-  if (rsi14Val > 75 && verdict === "Strong Buy") {
+  if (rsi14Val > 75 && (verdict === "Strong Buy" || verdict === "Buy")) {
     verdict = "Accumulate"
     entryType = "Pullback"
+    if (positionSize !== "None") positionSize = "Quarter"
   }
   
   // === RISK ADJUSTMENT ===
@@ -1185,6 +1283,32 @@ export function analyseCandles(pair: string, candles: Candle[]): AnalysisResult 
     // Poor R:R - downgrade
     if (verdict === "Strong Buy") verdict = "Buy"
     else if (verdict === "Buy") verdict = "Accumulate"
+  }
+
+  // Align verdicts with composite score so recommendations are internally consistent.
+  if (verdict === "Strong Buy" && compositeScore < 50) {
+    verdict = "Buy"
+    if (positionSize === "Full") positionSize = "Half"
+  }
+  if (verdict === "Buy" && compositeScore < 20) {
+    verdict = "Accumulate"
+    if (entryType !== "Breakout") entryType = "Pullback"
+    if (positionSize === "Full" || positionSize === "Half") positionSize = "Quarter"
+  }
+  if (verdict === "Accumulate" && compositeScore < 5) {
+    verdict = "Neutral"
+    entryType = "None"
+    positionSize = "None"
+  }
+  if (
+    verdict === "Neutral" &&
+    compositeScore <= -20 &&
+    isBearishTrend &&
+    (isStrongTrend || isBearishADX || volumeScore < 0)
+  ) {
+    verdict = "Avoid"
+    entryType = "None"
+    positionSize = "None"
   }
   
   /* ===== Build Professional Reasoning ===== */
@@ -1307,15 +1431,37 @@ export function analyseCandles(pair: string, candles: Candle[]): AnalysisResult 
     structureScore > 15 ? 1 : 0,
     volumeScore > 8 ? 1 : 0,
   ].reduce((a, b) => a + b, 0)
+
+  const bearishSignals = [
+    trendScore < -15 ? 1 : 0,
+    momentumScore < -15 ? 1 : 0,
+    structureScore < -15 ? 1 : 0,
+    volumeScore < -8 ? 1 : 0,
+  ].reduce((a, b) => a + b, 0)
   
   let confidence: Confidence
-  // Confidence based on bullish signal alignment only
-  if (bullishSignals >= 4 || (bullishSignals >= 3 && compositeScore >= 40)) {
+
+  // Confidence depends on alignment in the direction of the verdict.
+  const directionalSignals =
+    verdict === "Avoid"
+      ? bearishSignals
+      : verdict === "Strong Buy" || verdict === "Buy" || verdict === "Accumulate"
+      ? bullishSignals
+      : Math.max(bullishSignals, bearishSignals)
+
+  if (directionalSignals >= 4 || Math.abs(compositeScore) >= 50) {
     confidence = "High"
-  } else if (bullishSignals >= 3 || (bullishSignals >= 2 && compositeScore >= 25)) {
+  } else if (directionalSignals >= 3 || Math.abs(compositeScore) >= 25) {
     confidence = "Medium"
   } else {
     confidence = "Low"
+  }
+
+  if ((verdict === "Strong Buy" || verdict === "Buy") && confidence === "Low") {
+    confidence = "Medium"
+  }
+  if (verdict === "Avoid" && bearishSignals >= 3 && confidence === "Low") {
+    confidence = "Medium"
   }
   
   /* ===== Build indicators object ===== */
