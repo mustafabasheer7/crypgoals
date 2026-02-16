@@ -5,6 +5,13 @@ import { analyseCandles } from "@/lib/analysis"
 const DEFAULT_INTERVAL = 240
 const DEFAULT_LIMIT = 300
 
+interface OhlcApiResponse {
+  error?: string
+  candles?: Candle[]
+  displayPair?: string
+  last?: unknown
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const pair = searchParams.get("pair")?.trim()
@@ -41,9 +48,9 @@ export async function GET(req: NextRequest) {
     const ohlcRes = await fetch(baseUrl.toString(), { cache: "no-store" })
     const text = await ohlcRes.text()
 
-    let ohlcJson: any = null
+    let ohlcJson: OhlcApiResponse | null = null
     try {
-      ohlcJson = text ? JSON.parse(text) : null
+      ohlcJson = text ? (JSON.parse(text) as OhlcApiResponse) : null
     } catch {
       ohlcJson = null
     }
