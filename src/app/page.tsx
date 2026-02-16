@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, FormEvent, useEffect } from "react";
+import { Suspense, useState, FormEvent, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
@@ -585,7 +585,7 @@ function VerdictExplanation({
   );
 }
 
-export default function HomePage() {
+function HomePageContent() {
   const searchParams = useSearchParams();
 
   const [pair, setPair] = useState("");
@@ -1449,5 +1449,13 @@ export default function HomePage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={null}>
+      <HomePageContent />
+    </Suspense>
   );
 }
