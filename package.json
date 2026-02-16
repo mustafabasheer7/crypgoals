@@ -1,7 +1,11 @@
 {
-  "name": "ecomgithub",
+  "name": "crypgoals",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@9.14.2",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
