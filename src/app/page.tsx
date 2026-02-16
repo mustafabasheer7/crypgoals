@@ -96,6 +96,10 @@ interface AnalysisResult {
   };
 }
 
+type AnalysisApiResponse = AnalysisResult & {
+  error?: string;
+};
+
 const PAIR_REGEX = /^[A-Z0-9]{2,10}[\/-][A-Z0-9]{2,10}$/i;
 
 function validatePair(value: string): boolean {
@@ -134,9 +138,9 @@ async function fetchAnalysis(pair: string): Promise<AnalysisResult> {
 
   const text = await res.text();
 
-  let data: any = null;
+  let data: AnalysisApiResponse | null = null;
   try {
-    data = text ? JSON.parse(text) : null;
+    data = text ? (JSON.parse(text) as AnalysisApiResponse) : null;
   } catch {
     data = null;
   }
@@ -532,11 +536,9 @@ const riskInfo = {
 function VerdictExplanation({
   verdict,
   score,
-  trend,
 }: {
   verdict: Verdict;
   score: number;
-  trend: string;
 }) {
   // Generate professional-style explanation
   const getExplanation = (): string => {
@@ -645,7 +647,6 @@ export default function HomePage() {
       // Auto-trigger analysis when coming from scanner
       runAnalysis(pairParam);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -995,7 +996,6 @@ export default function HomePage() {
                     <VerdictExplanation
                       verdict={result.verdict}
                       score={result.meta.signals.composite}
-                      trend={result.meta.trend}
                     />
                   </div>
                 </CardContent>

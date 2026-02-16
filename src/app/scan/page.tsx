@@ -5,9 +5,6 @@ import Link from "next/link";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -516,7 +513,7 @@ export default function ScanPage() {
           <Card className="bg-zinc-900/30 border-zinc-800/50">
             <CardContent className="py-16 text-center">
               <p className="text-zinc-500 mb-4">
-                Click "Scan Top 40 Coins" to analyze multiple cryptocurrencies
+                Click &quot;Scan Top 40 Coins&quot; to analyze multiple cryptocurrencies
                 and find buying opportunities.
               </p>
               <p className="text-zinc-600 text-sm">
